@@ -5,7 +5,7 @@ Vue « casque VR » sans casque : choisissez votre star (Ronaldo, Messi, Neymar 
 
 ## Lancer le jeu
 
-- **En ligne :** 👉 [jouer sur yannirabia.github.io/padel-pov](https://yannirabia.github.io/padel-pov/)
+- **En ligne :** 👉 [padel-pov.vercel.app](https://padel-pov.vercel.app) (ou [yannirabia.github.io/padel-pov](https://yannirabia.github.io/padel-pov/))
 - **Le plus simple :** ouvrez `index.html` dans Chrome, Firefox ou Safari (connexion Internet requise pour charger Three.js).
 - **Si la page reste noire :** lancez un serveur local dans le dossier, puis ouvrez http://localhost:8000
   ```bash
