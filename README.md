@@ -1,7 +1,7 @@
 # Padel POV 🎾
 
 Un jeu de padel en 3D à la première personne, jouable directement dans le navigateur (Three.js).
-Vue « casque VR » sans casque : choisissez votre star (Ronaldo, Messi, Neymar ou Mbappé) et affrontez l'ordinateur en 1 contre 1 ou en 2 contre 2 avec un coéquipier — ou un ami **en ligne**, dans un stade aux tribunes rouges inspiré d'Anfield. Premier à 7 points.
+Vue « casque VR » sans casque : choisissez votre star (Ronaldo, Messi, Neymar ou Mbappé) et affrontez l'ordinateur en 1 contre 1 ou en 2 contre 2 avec un coéquipier — ou vos amis **en ligne** (jusqu'à 4 joueurs), dans un stade aux tribunes rouges inspiré d'Anfield. Premier à 7 points.
 
 ## Lancer le jeu
 
@@ -12,13 +12,14 @@ Vue « casque VR » sans casque : choisissez votre star (Ronaldo, Messi, Neymar 
   python3 -m http.server 8000
   ```
 
-## Jouer en ligne avec un ami (1 contre 1)
+## Jouer en ligne avec vos amis (1 contre 1 ou 2 contre 2)
 
 1. Choisissez **EN LIGNE** sur l'écran d'accueil, puis votre joueur.
-2. L'un clique sur **Créer une partie** : un code à 4 caractères s'affiche.
-3. Il envoie ce code à son ami, qui choisit **EN LIGNE**, saisit le code et clique sur **Rejoindre**.
+2. L'hôte choisit **1 contre 1** ou **2 contre 2**, puis clique sur **Créer une partie** : un code à 4 caractères s'affiche.
+3. Il envoie ce code à ses amis, qui choisissent **EN LIGNE**, saisissent le code et cliquent sur **Rejoindre**.
+4. En 1 contre 1, le match démarre dès que l'adversaire arrive. En 2 contre 2, l'hôte clique sur **Lancer le match** : les places libres sont jouées par l'ordinateur (et si un joueur quitte en cours de match, l'ordinateur le remplace).
 
-Les deux navigateurs se connectent directement (WebRTC via [PeerJS](https://peerjs.com)) : aucun serveur à installer, le jeu reste une simple page web. Le navigateur de celui qui crée la partie calcule la balle et le score.
+Les deux navigateurs se connectent directement (WebRTC via [PeerJS](https://peerjs.com)) : aucun serveur à installer, le jeu reste une simple page web. Le navigateur de celui qui crée la partie calcule la balle, le score et les joueurs de l'ordinateur. Chaque star ne peut être choisie qu'une fois par partie.
 Sur certains réseaux très filtrés (Wi‑Fi d'entreprise ou d'école), la connexion directe peut échouer : essayez alors un autre réseau (4G par exemple).
 
 ## Commandes
@@ -34,7 +35,8 @@ Sur certains réseaux très filtrés (Wi‑Fi d'entreprise ou d'école), la conn
 
 ## Fonctionnalités
 
-- 3 modes : **1 contre 1**, **2 contre 2** (votre coéquipier couvre l'autre moitié du terrain) et **en ligne** contre un ami
+- 3 modes : **1 contre 1**, **2 contre 2** (votre coéquipier couvre l'autre moitié du terrain) et **en ligne** (1 contre 1 ou 2 contre 2, jusqu'à 4 joueurs)
+- Terrain de 11 × 22 m, un peu plus grand qu'un terrain officiel (10 × 20 m), pour des échanges plus aérés
 - 4 personnages au choix — Ronaldo, Messi, Neymar, Mbappé — avec maillot, numéro et nom, animés (course, frappe)
 - 3 niveaux : **Amateur**, **Pro**, **Expert** — l'adversaire court plus vite, se trompe moins et frappe plus fort et plus près des lignes à chaque niveau
 - Stade avec quatre tribunes pleines de supporters qui sautent à chaque point
