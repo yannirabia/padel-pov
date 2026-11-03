@@ -22,13 +22,22 @@ Vue « casque VR » sans casque : choisissez votre star (Ronaldo, Messi, Neymar 
 Les deux navigateurs se connectent directement (WebRTC via [PeerJS](https://peerjs.com)) : aucun serveur à installer, le jeu reste une simple page web. Le navigateur de celui qui crée la partie calcule la balle, le score et les joueurs de l'ordinateur. Chaque star ne peut être choisie qu'une fois par partie.
 Sur certains réseaux très filtrés (Wi‑Fi d'entreprise ou d'école), la connexion directe peut échouer : essayez alors un autre réseau (4G par exemple).
 
+## Comment bien frapper
+
+- **Le timing compte** : frappez quand la balle est à environ 1 m de vous, à hauteur de hanche. Le jeu affiche **PARFAIT**, **BIEN**, **TROP TÔT**, **TROP TARD** ou **DÉCENTRÉ**.
+- Une frappe parfaite part vite et précisément ; une frappe ratée part moins vite, à côté de la cible, et peut finir **dans le filet ou sur la vitre** (faute).
+- **Maintenez le clic** pour charger la puissance (jauge sous le viseur) : balle plus rapide et plus profonde, mais plus risquée.
+- **Smash** : une balle haute près du filet part en smash, très difficile à reprendre.
+- **Service** : il doit rebondir avant la ligne de service adverse. Une faute = second service, deux fautes = point perdu. Servir fort est plus risqué.
+- **Pour marquer** : l'adversaire rate plus souvent quand vous frappez vite et loin de lui. Il joue aussi tactiquement : il vise l'espace libre, lobe si vous êtes au filet, amortit si vous êtes au fond, smashe les balles hautes et monte parfois au filet pour volleyer. En niveau Expert, l'anneau d'aide au rebond disparaît.
+
 ## Commandes
 
 | Action | Touche |
 | --- | --- |
 | Se déplacer | `Z` `Q` `S` `D` (ou `W` `A` `S` `D`) ou flèches |
 | Regarder / viser | Souris |
-| Frapper / servir | Clic gauche ou `Espace` |
+| Frapper / servir | Clic gauche ou `Espace` (maintenir = plus de puissance) |
 | Lob | Regarder vers le haut en frappant |
 | Balle courte | Regarder vers le bas en frappant |
 | Pause | `Échap` |

@@ -32,6 +32,11 @@
   #msg { position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%); font-size: 26px; font-weight: 800;
     text-shadow: 0 3px 12px rgba(0,0,0,.45); text-align: center; transition: opacity .25s; opacity: 0; white-space: nowrap; }
   #msg small { display: block; font-size: 15px; font-weight: 600; opacity: .9; margin-top: 4px; }
+  #charge { position: absolute; top: calc(50% + 12px); left: 50%; width: 64px; height: 5px; margin-left: -32px; border-radius: 3px;
+    background: rgba(255,255,255,.25); overflow: hidden; opacity: 0; transition: opacity .1s; }
+  #charge i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffd400, #ff5a3c); }
+  #hitfb { position: absolute; top: calc(50% + 24px); left: 50%; transform: translateX(-50%); font-weight: 900; font-size: 18px;
+    letter-spacing: .08em; text-shadow: 0 2px 8px rgba(0,0,0,.55); opacity: 0; transition: opacity .25s; white-space: nowrap; }
   #cross { position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%;
     background: rgba(255,255,255,.85); box-shadow: 0 0 0 2px rgba(0,0,0,.25); }
   #hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 13px;
@@ -106,8 +111,10 @@
   </div>
   <div id="target">Premier à 7 points · Niveau Pro</div>
   <div id="cross"></div>
+  <div id="charge"><i></i></div>
+  <div id="hitfb"></div>
   <div id="msg"></div>
-  <div id="hint">Clic gauche : frapper · Regarder en haut : lob · Regarder en bas : balle courte · Échap : pause</div>
+  <div id="hint">Clic : frapper (maintenir = plus fort) · Haut : lob · Bas : amortie · Balle haute au filet : smash · Échap : pause</div>
 </div>
 
 <!-- Accueil -->
@@ -152,8 +159,9 @@
     <div class="colors" id="colors"></div>
     <div class="controls">
       <div><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou flèches : se déplacer</div>
-      <div>Souris : regarder et viser · <b>Clic gauche</b> (ou <kbd>Espace</kbd>) : frapper / servir</div>
-      <div>Regarder en haut = lob · en bas = balle courte · <kbd>Échap</kbd> : pause</div>
+      <div>Souris : viser · <b>Clic gauche</b> (ou <kbd>Espace</kbd>) : frapper — <b>maintenez</b> pour plus de puissance (et plus de risque)</div>
+      <div>Frappez quand la balle est <b>à environ 1 m</b>, à hauteur de hanche : <b>PARFAIT</b> = balle rapide et précise</div>
+      <div>Regarder en haut = lob · en bas = amortie · balle haute près du filet = <b>smash</b> · <kbd>Échap</kbd> : pause</div>
     </div>
     <button class="big" id="play">Jouer</button>
   </div>
@@ -200,9 +208,14 @@ const COLORS = { Rouge: 0xe53935, Bleu: 0x1e88e5, Vert: 0x43a047, Jaune: 0xfdd83
 const SWING_TIME = 0.32;
 // Niveaux : vitesse de l'adversaire, taux d'erreur, puissance/précision de ses frappes, portée de frappe du joueur
 const LEVELS = {
-  amateur: { label: 'Amateur', aiSpeed: 3.5, miss: 0.24, rubber: 0.04, speed: [8.5, 10.5], wideX: 3.2, depth: [4.5, 7.5], drop: 0.0, aiReach: 1.1, reach: 1.7 },
-  pro:     { label: 'Pro',     aiSpeed: 4.4, miss: 0.12, rubber: 0.03, speed: [9.5, 12.5], wideX: 3.8, depth: [4.5, 8.0], drop: 0.06, aiReach: 1.2, reach: 1.4 },
-  expert:  { label: 'Expert',  aiSpeed: 5.3, miss: 0.05, rubber: 0.02, speed: [11.5, 14.5], wideX: 4.2, depth: [5.5, 8.6], drop: 0.12, aiReach: 1.35, reach: 1.15 },
+  // aiQ : qualité de frappe de l'adversaire · pressure : à quel point les balles rapides/excentrées le font rater
+  // smash / netRush : envie de smasher et de monter au filet · marker : anneau d'aide au rebond
+  amateur: { label: 'Amateur', aiSpeed: 3.5, miss: 0.14, rubber: 0.04, speed: [8.5, 10.5], wideX: 3.2, depth: [4.5, 7.5], drop: 0.0, aiReach: 1.1, reach: 1.7,
+             aiQ: 0.5, pressure: 0.5, smash: 0.15, netRush: 0, marker: true },
+  pro:     { label: 'Pro',     aiSpeed: 4.4, miss: 0.07, rubber: 0.03, speed: [9.5, 12.5], wideX: 3.8, depth: [4.5, 8.0], drop: 0.06, aiReach: 1.2, reach: 1.4,
+             aiQ: 0.68, pressure: 0.3, smash: 0.5, netRush: 0.25, marker: true },
+  expert:  { label: 'Expert',  aiSpeed: 5.3, miss: 0.03, rubber: 0.02, speed: [11.5, 14.5], wideX: 4.2, depth: [5.5, 8.6], drop: 0.12, aiReach: 1.35, reach: 1.15,
+             aiQ: 0.82, pressure: 0.24, smash: 0.8, netRush: 0.45, marker: false },
 };
 let level = LEVELS.pro;
 
@@ -634,7 +647,7 @@ function stepBall(b, dt, emit) {
 }
 
 // Vitesse pour atterrir sur "target" en passant au-dessus du filet
-function shotVelocity(from, target, speedH) {
+function shotVelocity(from, target, speedH, margin = 0.35) {
   const dx = target.x - from.x, dz = target.z - from.z;
   const d = Math.hypot(dx, dz);
   let T = Math.max(0.35, d / speedH), vy = 0;
@@ -644,11 +657,41 @@ function shotVelocity(from, target, speedH) {
     const tn = vz !== 0 ? -from.z / vz : -1;
     if (tn > 0 && tn < T) {
       const yn = from.y + vy * tn - 0.5 * G * tn * tn;
-      if (yn < NET_H + 0.35) { T *= 1.07; continue; }
+      if (yn < NET_H + margin) { T *= 1.07; continue; }
     }
     break;
   }
   return new THREE.Vector3(dx / T, vy, dz / T);
+}
+
+// ---------- Qualité de frappe ----------
+// Une frappe est meilleure quand la balle est à bonne distance (bras + raquette), à hauteur de hanche
+// et touchée au milieu du geste. Ratée, elle part moins vite, moins précise, et peut finir dans le filet ou dehors.
+const IDEAL_D = 0.8, IDEAL_H = 1.1;
+function contactQuality(d, h, p) {
+  const sd = 1 - clamp(Math.abs(d - IDEAL_D) / 0.7, 0, 1);
+  const sh = 1 - clamp(Math.abs(h - IDEAL_H) / 1.3, 0, 1);
+  const st = 1 - clamp(Math.abs(p - 0.45) / 0.5, 0, 1);
+  return clamp(0.45 * sd + 0.25 * sh + 0.3 * st, 0, 1);
+}
+function feedback(q, p, d, smash) {
+  if (smash && q > 0.5) return ['SMASH !', '#ff5a3c'];
+  if (q > 0.8) return ['PARFAIT !', '#3ddc84'];
+  if (q > 0.6) return ['BIEN', '#b6ef8a'];
+  if (p < 0.3 && d > IDEAL_D + 0.3) return ['TROP TÔT', '#ffb020'];
+  if (p > 0.65) return ['TROP TARD', '#ffb020'];
+  return ['DÉCENTRÉ', '#ffb020'];
+}
+let fbTimer = 0;
+function showFeedback([text, color]) { const el = $('hitfb'); el.textContent = text; el.style.color = color; el.style.opacity = 1; fbTimer = 0.9; }
+const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;   // entre -1 et 1, centré
+// Qualité et puissance -> vitesse, dispersion autour de la cible, marge au-dessus du filet (négative = risque de filet)
+function shoot(target, speed, q, power, smash) {
+  const scatter = (1 - q) * 1.9 + power * 0.9;
+  target.x += gauss() * scatter; target.z += gauss() * scatter * 0.8;
+  speed *= (0.8 + 0.35 * q) * (1 + 0.35 * power) * (smash ? 1.45 : 1);
+  const margin = smash ? 0.05 : 0.45 * q - 0.12 - 0.15 * power;
+  ball.v.copy(shotVelocity(ball.p, target, speed, margin));
 }
 
 // Simule la trajectoire pour anticiper rebond et point de frappe d'un côté (+1 joueur, -1 ordi)
@@ -708,8 +751,9 @@ const atPlayer = k => k / (1 + 0.12 * Math.hypot(ball.p.x - meX(), ball.p.z - me
 // Les autres joueurs sont des "bots" : joués par l'ordinateur, ou par un humain à distance (remote).
 const HUMAN = 'human';
 const S = { state: 'menu', paused: false, score: { P: 0, A: 0 }, phase: 'serve', server: HUMAN, lastHitter: null,
-  bounces: 0, rallyTime: 0, played: 0, nextTimer: 0, over: false, assigned: null, target: null, predT: 0, missRoll: 1 };
-const player = { x: 2, z: BASE_Z, yaw: 0.12, pitch: -0.1, swing: 0, swingUsed: false, bob: 0 };
+  bounces: 0, rallyTime: 0, played: 0, nextTimer: 0, over: false, assigned: null, target: null, predT: 0, missRoll: 1,
+  lastQ: 0.6, pressure: 0, missProb: null, serveShot: false, faults: 0, secondServe: false };
+const player = { x: 2, z: BASE_Z, yaw: 0.12, pitch: -0.1, swing: 0, swingUsed: false, bob: 0, charging: false, charge: 0, power: 0 };
 const ball = { p: new THREE.Vector3(), v: new THREE.Vector3(), held: true, dead: false, rolling: false };
 let mode = 1, online = false, onlineMode = 1, myChar = 'messi', otherChar = 'ronaldo';
 let bots = [];
@@ -728,7 +772,8 @@ const nameOf = who => who === HUMAN ? CHARS[myChar].name : CHARS[who.key].name;
 const mate = () => bots.find(b => b.team === 'P');
 
 const make = (key, team, lane, seat) => ({ key, team, lane, seat, model: makePlayer(key), x: 0, z: 0, tx: 0, tz: 0,
-  swing: 0, swingUsed: false, miss: false, walk: 0, run: 0, face: team === 'P' ? Math.PI : 0, serveTimer: 0, yaw: 0, pitch: 0, remote: false });
+  swing: 0, swingUsed: false, miss: false, walk: 0, run: 0, face: team === 'P' ? Math.PI : 0, serveTimer: 0, yaw: 0, pitch: 0, remote: false,
+  power: 0, netRush: false });
 function clearBots() { for (const b of bots) scene.remove(b.model.group); bots = []; }
 
 function setupTeams() {
@@ -758,6 +803,7 @@ function placePlayers(side) {
   [player.x, player.z] = seatStart('P0', side); player.pitch = -0.1; player.yaw = 0.13 * Math.sign(player.x);
   for (const b of bots) { [b.x, b.z] = seatStart(b.seat, side); b.tx = b.x; b.tz = b.z; }
 }
+const teamPositions = t => bots.filter(b => b.team === t).map(b => ({ x: b.x, z: b.z })).concat(t === 'P' ? [{ x: player.x, z: player.z }] : []);
 const allPositions = () => [['P0', player.x, player.z], ...bots.map(b => [b.seat, b.x, b.z])];
 
 let msgTimer = 0;
@@ -767,17 +813,21 @@ function message(text, sub = '', time = 1.6) {
 }
 function updateScore() { $('sP').textContent = S.score[myTeam()]; $('sA').textContent = S.score[oppTeam()]; }
 
-function startPoint() {
+function startPoint(second = false) {
   const side = S.played % 2 === 0 ? 1 : -1;
+  if (!second) S.faults = 0;
+  S.secondServe = false; S.serveShot = false;
+  for (const b of bots) b.netRush = false;
   const order = mode === 1 ? ['P0', 'A0'] : ['P0', 'A0', 'P1', 'A1'];
   S.server = bySeat(order[Math.floor((S.played + 1) / 2) % order.length]);
   placePlayers(side);
   S.phase = 'serve'; S.lastHitter = null; S.bounces = 0; S.rallyTime = 0; S.assigned = null;
   Object.assign(ball, { held: true, dead: false, rolling: false }); ball.v.set(0, 0, 0);
   trailPos.length = 0; marker.visible = false;
-  if (S.server === HUMAN) message('À vous de servir', 'Clic gauche ou Espace', 2.5);
-  else { S.server.serveTimer = 1.3; message(`Service de ${nameOf(S.server)}`, '', 1.2); }
-  if (NET.role === 'host') send({ t: 'serve', who: seatOf(S.server), pos: allPositions() });
+  const sub = second ? 'Second service' : '';
+  if (S.server === HUMAN) message(second ? 'Second service' : 'À vous de servir', second ? 'Attention à la double faute' : 'Clic gauche ou Espace', 2.5);
+  else { S.server.serveTimer = 1.3; message(`Service de ${nameOf(S.server)}`, sub, 1.2); }
+  if (NET.role === 'host') send({ t: 'serve', who: seatOf(S.server), pos: allPositions(), second });
 }
 
 function newGame() {
@@ -797,6 +847,14 @@ function awardPoint(winner, reason) {
   S.nextTimer = S.over ? 1.4 : 1.8;
 }
 
+// Service raté : un second service est accordé, deux fautes = point perdu
+function serveFault(reason) {
+  S.serveShot = false;
+  if (S.faults >= 1) { awardPoint(S.lastHitter === 'P' ? 'A' : 'P', `Double faute · ${reason}`); return; }
+  S.faults = 1; S.phase = 'dead'; S.secondServe = true; S.nextTimer = 1.5; marker.visible = false;
+  message('Faute', reason, 1.5);
+  if (NET.role === 'host') send({ t: 'msg', text: 'Faute', sub: reason });
+}
 function onBallEvent(e, k = 3) {
   if (NET.role === 'host') send({ t: 'ev', e, k, z: ball.p.z });
   if (e === 'floor') sfx('bounce', atPlayer(k / 8));
@@ -805,6 +863,18 @@ function onBallEvent(e, k = 3) {
   if (S.phase !== 'rally') return;
   const H = S.lastHitter, O = H === 'P' ? 'A' : 'P';
   const recv = H === 'P' ? -1 : 1, side = Math.sign(ball.p.z) || 1;
+  if (S.serveShot) {   // le service doit passer le filet et rebondir avant la ligne de service adverse
+    let fault = null;
+    if (e === 'net') fault = 'Service dans le filet';
+    else if (e === 'wall') fault = 'Service sur la vitre';
+    else if (e === 'out') fault = 'Service dehors';
+    else if (e === 'floor') {
+      if (side !== recv) fault = 'Faute de service';
+      else if (Math.abs(ball.p.z) > SERVICE + 0.1) fault = 'Service trop long';
+      else S.serveShot = false;
+    }
+    if (fault) { serveFault(fault); return; }
+  }
   if (e === 'floor') {
     if (side === recv) { S.bounces++; if (S.bounces >= 2) awardPoint(H, 'Double rebond'); else if (H === 'A') marker.visible = false; }
     else awardPoint(S.bounces === 0 ? O : H, S.bounces === 0 ? 'Faute' : 'La balle est repassée');
@@ -814,51 +884,78 @@ function onBallEvent(e, k = 3) {
   else if (e === 'out') awardPoint(S.bounces >= 1 ? H : O, S.bounces >= 1 ? 'Balle sortie du terrain' : 'Balle dehors');
 }
 
+// Tactique de l'ordinateur : viser l'espace libre, lober un adversaire au filet, amortir s'ils sont au fond, smasher
+function aiShot(b) {
+  const lvl = b.team === 'A' ? level : LEVELS.pro;
+  const foes = teamPositions(b.team === 'P' ? 'A' : 'P');
+  const w = (b.team === 'A' ? lvl.wideX : 3.6) * KX;
+  let tx = 0, best = -1;
+  for (let i = 0; i <= 6; i++) {
+    const x = -w + (2 * w * i) / 6, sc = Math.min(...foes.map(f => Math.abs(f.x - x))) + rand(0, 1.2);
+    if (sc > best) { best = sc; tx = x; }
+  }
+  const foeNet = foes.some(f => Math.abs(f.z) < 5 * KZ), foeDeep = foes.every(f => Math.abs(f.z) > 8 * KZ);
+  if (ball.p.y > 1.75 && Math.abs(b.z) < 7 * KZ && Math.random() < lvl.smash) return { tx, tz: rand(5, 7) * KZ, speed: 13, smash: true };
+  if (foeNet && Math.random() < 0.55) return { tx: tx * 0.7, tz: HALF_L - 1.4, speed: 7.5 };               // lob par-dessus
+  if (foeDeep && Math.random() < lvl.drop * 2.5 + 0.05) return { tx, tz: rand(2.2, 3.2) * KZ, speed: 8 };   // amortie
+  const r = Math.random();
+  if (r < 0.1) return { tx, tz: HALF_L - 1.6, speed: 7.5 };
+  return { tx, tz: rand(...lvl.depth) * KZ, speed: rand(...lvl.speed) };
+}
+
 // Exécutée par l'hôte (ou hors ligne) : HUMAN y est toujours la place P0.
-function hitBall(hitter, serve = false) {
+// o = { q: qualité 0..1, power: puissance chargée 0..1, p, d : moment et distance de contact (pour le retour visuel) }
+function hitBall(hitter, serve = false, o = {}) {
   const team = hitter === HUMAN ? 'P' : hitter.team;
-  let target, speed;
-  if (hitter === HUMAN || hitter.remote) {
+  const human = hitter === HUMAN || hitter.remote;
+  let target, speed, smash = false, q, power;
+  if (human) {
+    q = serve ? 0.8 : (o.q ?? 0.7); power = o.power || 0;
+  } else {
+    const lvl = team === 'A' ? level : LEVELS.pro;
+    // sous pression (balle rapide, longue course), l'ordinateur frappe moins bien
+    q = serve ? clamp(lvl.aiQ + 0.15, 0, 0.95) : clamp(lvl.aiQ + rand(-0.15, 0.15) - S.pressure * 0.35, 0.1, 0.97);
+    power = Math.random() < 0.2 ? rand(0.2, 0.6) : 0;
+  }
+  if (human) {
     // visée d'un joueur humain, calculée dans son propre repère
     const m = team === 'A' ? -1 : 1, yaw = hitter === HUMAN ? player.yaw : hitter.yaw, pitch = hitter === HUMAN ? player.pitch : hitter.pitch;
     const bx = ball.p.x * m, bz = ball.p.z * m;
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     let tz;
-    if (serve) { tz = -SERVICE * 0.7; speed = 9.5; }
-    else if (pitch > 0.28) { tz = -(HALF_L - 1.6); speed = 7.5; }   // lob
-    else if (pitch < -0.38) { tz = -3.0 * KZ; speed = 10; }        // balle courte
-    else { tz = -6.8 * KZ; speed = 13.5; }
+    smash = !serve && ball.p.y > 1.75 && Math.abs(ball.p.z) < 7 * KZ;   // balle haute près du filet : smash
+    if (serve) { tz = -(SERVICE * 0.72 + power * 1.6); speed = 9.5; }   // service puissant = plus près de la ligne, plus risqué
+    else if (smash) { tz = -rand(5, 7) * KZ; speed = 13; }
+    else if (pitch > 0.28) { tz = -(HALF_L - 1.6); speed = 7.5; }          // lob
+    else if (pitch < -0.38) { tz = -3.0 * KZ; speed = 9; }                // amortie
+    else { tz = -(6.8 * KZ + power * 1.2); speed = 13.5; }               // la puissance pousse aussi la balle plus loin
     let tx;
     if (fz < -0.15) tx = bx + fx * (tz - bz) / fz;
     else tx = -bx * 0.5;
-    tx = clamp(tx + rand(-0.25, 0.25), -(HALF_W - 0.8), HALF_W - 0.8);
+    tx = clamp(tx, -(HALF_W - 0.6), HALF_W - 0.6);
     target = new THREE.Vector3(tx * m, R, tz * m);
   } else {
     const dirZ = team === 'P' ? -1 : 1;     // vers le camp d'en face
-    let tx, tz;
-    if (serve) { tx = clamp(-hitter.x * 0.9, -3.5 * KX, 3.5 * KX); tz = SERVICE * 0.7; speed = 9; }
-    else if (team === 'A') {
-      const w = level.wideX * KX;
-      if (mode === 1) tx = Math.random() < 0.6 ? (player.x > 0 ? rand(-w, -0.8) : rand(0.8, w)) : rand(-w, w);
-      else tx = Math.random() < 0.35 ? rand(-0.8, 0.8) : rand(-w, w);     // entre les deux joueurs ou le long des vitres
-      tz = rand(...level.depth) * KZ; speed = rand(...level.speed);
-      const r = Math.random();
-      if (r < 0.15) { tz = HALF_L - 1.6; speed = 7.5; }                         // lob
-      else if (r < 0.15 + level.drop) { tz = rand(2.2, 3.2) * KZ; speed = 8; }  // amortie
-    } else {
-      tx = rand(-3.6, 3.6) * KX; tz = rand(5, 8) * KZ; speed = rand(10, 12.5);
-      if (Math.random() < 0.12) { tz = HALF_L - 1.6; speed = 7.5; }
-    }
-    target = new THREE.Vector3(tx, R, tz * dirZ);
+    let shot;
+    if (serve) shot = { tx: clamp(-hitter.x * 0.9, -3.5 * KX, 3.5 * KX), tz: SERVICE * 0.75, speed: 9 };
+    else shot = aiShot(hitter);
+    smash = !!shot.smash; speed = shot.speed;
+    target = new THREE.Vector3(shot.tx, R, shot.tz * dirZ);
+    // après une bonne frappe, l'ordinateur monte parfois au filet pour volleyer
+    const lvl = team === 'A' ? level : LEVELS.pro;
+    if (!serve && q > 0.7 && Math.random() < lvl.netRush) hitter.netRush = true;
   }
-  ball.v.copy(shotVelocity(ball.p, target, speed));
+  shoot(target, speed, q, power, smash);
   Object.assign(ball, { held: false, dead: false, rolling: false });
   S.lastHitter = team; S.bounces = 0; S.phase = 'rally'; S.rallyTime = 0;
   S.missRoll = serve ? 1 : Math.random(); S.predT = 0; S.assigned = null;
-  sfx('hit', hitter === HUMAN ? 1 : atPlayer(1.4));
+  S.lastQ = q; S.missProb = null; S.serveShot = serve;
+  sfx('hit', (hitter === HUMAN ? 1 : atPlayer(1.4)) * (0.7 + 0.5 * q));
   marker.visible = false;
-  if (NET.role === 'host') send({ t: 'hit', who: seatOf(hitter), b: [...ball.p.toArray(), ...ball.v.toArray()] });
-  if (team === 'A') {
+  const fb = human && !serve ? feedback(q, o.p ?? 0.45, o.d ?? IDEAL_D, smash) : null;
+  if (hitter === HUMAN && fb) showFeedback(fb);
+  if (NET.role === 'host') send({ t: 'hit', who: seatOf(hitter), b: [...ball.p.toArray(), ...ball.v.toArray()], fb });
+  if (team === 'A' && level.marker) {
     const pr = predict(1);
     if (pr.first) { marker.position.set(pr.first.x, 0.014, pr.first.z); marker.visible = true; }
   }
@@ -875,9 +972,15 @@ function assign() {
   S.target = pr; S.assigned = who || HUMAN;
   for (const b of bots) b.miss = false;
   if (who) {
-    // en 2 contre 2, un peu plus d'erreurs pour garder des échanges courts
-    const prob = who.team === 'A' ? clamp(level.miss * (mode === 2 ? 1.4 : 1) + level.rubber * (S.score.A - S.score.P), 0.02, 0.4) : 0.13;
-    who.miss = S.missRoll < prob;   // l'adversaire rate plus souvent quand il mène (match serré)
+    if (S.missProb === null) {
+      // pression = balle rapide + longue course + bonne frappe adverse : c'est comme ça qu'on marque
+      const run = Math.hypot(pr.x - who.x, pr.z - who.z), spd = Math.hypot(ball.v.x, ball.v.z);
+      S.pressure = clamp((spd - 10) / 8, 0, 1) * 0.5 + clamp(run / (6 * KX), 0, 1) ** 1.5 * 0.5;
+      const lvl = who.team === 'A' ? level : LEVELS.pro;
+      S.missProb = clamp(lvl.miss * (mode === 2 ? 1.3 : 1) + S.pressure * lvl.pressure + (S.lastQ - 0.5) * 0.15
+        + (who.team === 'A' ? level.rubber * (S.score.A - S.score.P) : 0), 0.02, 0.6);
+    }
+    who.miss = S.missRoll < S.missProb;
   }
 }
 // Dans une équipe mixte (un humain + l'ordinateur), l'ordinateur couvre la moitié où l'humain n'est pas
@@ -902,15 +1005,24 @@ function remoteCanHit(b) {
   return Math.hypot(ball.p.x - b.x, ball.p.z - b.z) < LEVELS.pro.reach + 0.35 && ball.p.y > 0.05 && ball.p.y < 2.5;
 }
 
-function swingInput() {
+// Maintenir le clic (ou Espace) charge la puissance ; la frappe part au relâchement
+function chargeStart() {
+  if (S.state !== 'playing' || S.paused || player.charging || player.swing > 0) return;
+  player.charging = true; player.charge = 0;
+}
+function chargeRelease() {
+  if (!player.charging) return;
+  player.charging = false; swingInput(player.charge);
+}
+function swingInput(power = 0) {
   if (S.state !== 'playing' || S.paused) return;
   if (NET.role === 'guest') {          // l'hôte décide si la frappe touche la balle
     if (player.swing <= 0) { player.swing = SWING_TIME; if (!(S.phase === 'serve' && S.server === HUMAN)) sfx('whoosh'); }
-    send({ t: 'swing' }); return;
+    send({ t: 'swing', power }); return;
   }
-  if (S.phase === 'serve' && S.server === HUMAN) { player.swing = SWING_TIME; player.swingUsed = true; hitBall(HUMAN, true); return; }
+  if (S.phase === 'serve' && S.server === HUMAN) { player.swing = SWING_TIME; player.swingUsed = true; hitBall(HUMAN, true, { power }); return; }
   if (player.swing > 0) return;
-  player.swing = SWING_TIME; player.swingUsed = false; sfx('whoosh');
+  player.swing = SWING_TIME; player.swingUsed = false; player.power = power; sfx('whoosh');
 }
 
 // ---------- Entrées ----------
@@ -918,18 +1030,19 @@ const keys = {};
 let locked = false, lockFailed = false, pausedAt = 0;
 addEventListener('keydown', e => {
   keys[e.code] = true;
-  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) swingInput(); }
+  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) chargeStart(); }
   if (e.code === 'Escape' && S.state === 'playing') {
     if (!S.paused) pause(); else if (performance.now() - pausedAt > 300) resume();
   }
 });
-addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Space') chargeRelease(); });
+addEventListener('mouseup', e => { if (e.button === 0) chargeRelease(); });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 canvas.addEventListener('mousedown', e => {
   if (e.button !== 0 || S.state !== 'playing' || S.paused) return;
   if (!locked) requestLock();
   if (actx) actx.resume();
-  swingInput();
+  chargeStart();
 });
 addEventListener('mousemove', e => {
   if (S.state !== 'playing' || S.paused || !(locked || lockFailed)) return;
@@ -1180,7 +1293,8 @@ function onHostData(conn, d) {
   if (!b || !b.remote) { if (d.t === 'again' && S.state === 'end') hostStart(); return; }
   if (d.t === 'in') { b.tx = d.x; b.tz = d.z; b.yaw = d.yaw; b.pitch = d.pitch; }
   else if (d.t === 'swing' && S.state === 'playing') {
-    if (S.phase === 'serve' && S.server === b) { b.swing = SWING_TIME; b.swingUsed = true; hitBall(b, true); }
+    b.power = clamp(d.power || 0, 0, 1);
+    if (S.phase === 'serve' && S.server === b) { b.swing = SWING_TIME; b.swingUsed = true; hitBall(b, true, { power: b.power }); }
     else if (b.swing <= 0) { b.swing = SWING_TIME; b.swingUsed = false; }
   } else if (d.t === 'again' && S.state === 'end') hostStart();
 }
@@ -1217,8 +1331,11 @@ function onGuestData(d) {
       S.phase = 'serve'; S.server = bySeat(d.who);
       Object.assign(ball, { held: true, dead: false, rolling: false });
       trailPos.length = 0; marker.visible = false;
-      if (S.server === HUMAN) message('À vous de servir', 'Clic gauche ou Espace', 2.5);
-      else message(`Service de ${nameOf(S.server)}`, '', 1.2);
+      if (S.server === HUMAN) message(d.second ? 'Second service' : 'À vous de servir', d.second ? 'Attention à la double faute' : 'Clic gauche ou Espace', 2.5);
+      else message(`Service de ${nameOf(S.server)}`, d.second ? 'Second service' : '', 1.2);
+      break;
+    case 'msg':
+      S.phase = 'dead'; marker.visible = false; message(d.text, d.sub, 1.5);
       break;
     case 'st': {
       const holding = d.ph === 'serve' && d.sv === NET.seat;
@@ -1235,6 +1352,7 @@ function onGuestData(d) {
       S.phase = 'rally'; S.lastHitter = team; S.bounces = 0;
       sfx('hit', d.who === NET.seat ? 1 : atPlayer(1.4));
       if (d.who !== NET.seat) { const b = bySeat(d.who); if (b) b.swing = SWING_TIME; }
+      else if (d.fb) showFeedback(d.fb);
       marker.visible = false;
       if (team !== myTeam()) {
         const pr = predict(mirror());
@@ -1284,7 +1402,11 @@ function updateBot(b, dt) {
     b.tx = clamp(b.tx, -HALF_W + 0.35, HALF_W - 0.35); b.tz = sideZ(b.tz, b.team === 'P' ? 1 : -1);
     const k = Math.min(1, dt * 15), dx = (b.tx - b.x) * k, dz = (b.tz - b.z) * k, mv = Math.hypot(dx, dz);
     b.x += dx; b.z += dz; b.walk += mv * 5; b.run = Math.min(1, mv / dt / 5);
-    if (NET.role === 'host' && b.swing > 0 && !b.swingUsed && remoteCanHit(b)) { b.swingUsed = true; hitBall(b); }
+    if (NET.role === 'host' && b.swing > 0 && !b.swingUsed && 1 - b.swing / SWING_TIME >= 0.1 && remoteCanHit(b)) {
+      b.swingUsed = true;
+      const p = 1 - b.swing / SWING_TIME, d = Math.hypot(ball.p.x - b.x, ball.p.z - b.z);
+      hitBall(b, false, { q: contactQuality(Math.max(IDEAL_D, d - 0.25), ball.p.y, p), power: b.power, p, d });   // un peu d'indulgence pour le délai réseau
+    }
     return;
   }
   const sgn = b.team === 'P' ? 1 : -1;
@@ -1292,15 +1414,23 @@ function updateBot(b, dt) {
   if (S.phase === 'rally' && S.lastHitter !== b.team && S.assigned === b) {
     const pr = S.target, off = b.miss ? (pr.x > 0 ? -1.8 : 1.8) : 0;
     b.tx = pr.x + off; b.tz = pr.z + 0.25 * sgn;
-    if (!b.miss && Math.sign(ball.p.z) === sgn && S.bounces >= 1) {
-      // après le rebond : poursuite directe de la balle (rattrape les balles courtes)
-      b.tx = ball.p.x + ball.v.x * 0.25; b.tz = ball.p.z + ball.v.z * 0.25 + 0.2 * sgn;
+    if (b.netRush && !b.miss && Math.abs(ball.v.z) > 0.5) {
+      // au filet : se placer sur la trajectoire pour volleyer ; si c'est un lob trop haut, on recule
+      const t = (b.z - ball.p.z) / ball.v.z, yAt = ball.p.y + ball.v.y * t - 0.5 * G * t * t;
+      if (t > 0 && yAt < 2.2) { b.tx = ball.p.x + ball.v.x * t; b.tz = b.z; } else b.netRush = false;
+    }
+    if (!b.miss && Math.sign(ball.p.z) === sgn) {
       const d = Math.hypot(ball.p.x - b.x, ball.p.z - b.z);
-      if (d < reach && ball.p.y < 2.1 && (ball.v.y < 0.6 || ball.p.y < 0.7)) { b.swing = SWING_TIME; hitBall(b); }
+      const volley = S.bounces === 0 && Math.abs(b.z) < 5.5 * KZ && ball.p.y > 0.4 && ball.p.y < 2.1;
+      if (S.bounces >= 1) {
+        // après le rebond : poursuite directe de la balle (rattrape les balles courtes)
+        b.tx = ball.p.x + ball.v.x * 0.25; b.tz = ball.p.z + ball.v.z * 0.25 + 0.2 * sgn;
+      }
+      if (d < reach && ((S.bounces >= 1 && ball.p.y < 2.1 && (ball.v.y < 0.6 || ball.p.y < 0.7)) || volley)) { b.swing = SWING_TIME; hitBall(b); }
     }
   } else if (S.phase === 'rally' || S.phase === 'dead') {
     b.tx = mode === 1 ? clamp(ball.p.x * 0.5, -2.5, 2.5) : b.lane * 2.6 * KX + ball.p.x * 0.15;
-    b.tz = (BASE_Z - 1) * sgn;
+    b.tz = (b.netRush ? 4 * KZ : BASE_Z - 1) * sgn;
   }
   b.run = 0;
   if (S.phase !== 'serve') {
@@ -1333,6 +1463,8 @@ function animateBot(b, dt) {
 // ---------- Boucle ----------
 const tmp = new THREE.Vector3();
 function movePlayer(dt) {
+  if (player.charging) player.charge = Math.min(1, player.charge + dt / 0.7);
+  if (fbTimer > 0) { fbTimer -= dt; if (fbTimer <= 0) $('hitfb').style.opacity = 0; }
   let mx = 0, mz = 0;
   if (keys.KeyW || keys.ArrowUp) mz += 1;
   if (keys.KeyS || keys.ArrowDown) mz -= 1;
@@ -1358,10 +1490,15 @@ function update(dt, time) {
   movePlayer(dt);
   updateLanes();
 
-  // Frappe pendant la fenêtre du swing
+  // Contact pendant le geste : la qualité dépend de la distance, de la hauteur et du moment
   if (player.swing > 0) {
     player.swing -= dt;
-    if (!player.swingUsed && playerCanHit()) { player.swingUsed = true; hitBall(HUMAN); }
+    const p = 1 - player.swing / SWING_TIME;
+    if (!player.swingUsed && p >= 0.12 && playerCanHit()) {
+      player.swingUsed = true;
+      const d = Math.hypot(ball.p.x - player.x, ball.p.z - player.z);
+      hitBall(HUMAN, false, { q: contactQuality(d, ball.p.y, p), power: player.power, p, d });
+    }
   }
 
   // Service
@@ -1406,7 +1543,7 @@ function update(dt, time) {
   // Fin de point
   if (S.phase === 'dead') {
     S.nextTimer -= dt;
-    if (S.nextTimer <= 0) { if (S.over) endGame(); else startPoint(); }
+    if (S.nextTimer <= 0) { if (S.over) endGame(); else startPoint(S.secondServe); }
   }
   if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0) $('msg').style.opacity = 0; }
 }
@@ -1421,8 +1558,11 @@ function render(dt, time) {
 
   // Raquette : position de repos + animation de frappe
   const p = player.swing > 0 ? 1 - player.swing / SWING_TIME : 0, s = Math.sin(p * Math.PI);
-  racket.position.set(RACKET_BASE.pos.x - 0.42 * s, RACKET_BASE.pos.y + 0.1 * s + bob * 0.5, RACKET_BASE.pos.z - 0.18 * s);
-  racket.rotation.set(RACKET_BASE.rot.x - 0.25 * s, RACKET_BASE.rot.y + 1.1 * s, RACKET_BASE.rot.z + 0.7 * s);
+  const c = player.charging ? player.charge : 0;   // raquette armée en arrière pendant la charge
+  racket.position.set(RACKET_BASE.pos.x - 0.42 * s + 0.12 * c, RACKET_BASE.pos.y + 0.1 * s + bob * 0.5 + 0.05 * c, RACKET_BASE.pos.z - 0.18 * s + 0.08 * c);
+  racket.rotation.set(RACKET_BASE.rot.x - 0.25 * s, RACKET_BASE.rot.y + 1.1 * s - 0.6 * c, RACKET_BASE.rot.z + 0.7 * s - 0.2 * c);
+  $('charge').style.opacity = player.charging && c > 0.08 ? 1 : 0;
+  $('charge').firstChild.style.width = `${Math.round(c * 100)}%`;
   const can = S.state === 'playing' && (playerCanHit() || (S.phase === 'serve' && S.server === HUMAN));
   racket.userData.rimMat.emissive.setHex(can ? 0x66aaff : 0x000000);
   racket.userData.rimMat.emissiveIntensity = can ? 0.6 + 0.3 * Math.sin(time * 12) : 0;
