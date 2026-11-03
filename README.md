@@ -31,7 +31,19 @@ Sur certains réseaux très filtrés (Wi‑Fi d'entreprise ou d'école), la conn
 - **Service** : il doit rebondir avant la ligne de service adverse. Une faute = second service, deux fautes = point perdu. Servir fort est plus risqué.
 - **Pour marquer** : l'adversaire rate plus souvent quand vous frappez vite et loin de lui. Il joue aussi tactiquement : il vise l'espace libre, lobe si vous êtes au filet, amortit si vous êtes au fond, smashe les balles hautes et monte parfois au filet pour volleyer. En niveau Expert, l'anneau d'aide au rebond disparaît.
 
-## Commandes
+## Sur téléphone
+
+Ouvrez le lien sur votre téléphone et tournez-le **en mode paysage** (le jeu passe en plein écran quand c'est possible).
+
+| Action | Geste |
+| --- | --- |
+| Se déplacer | Joystick sous le **pouce gauche** (il apparaît là où vous posez le doigt) |
+| Regarder / viser | **Glisser** le doigt ailleurs sur l'écran |
+| Frapper / servir | Bouton **FRAPPER** — maintenez pour plus de puissance |
+| Lob / amortie | Boutons **LOB** et **AMORTIE** |
+| Pause | Bouton ❚❚ en haut à gauche |
+
+## Commandes (ordinateur)
 
 | Action | Touche |
 | --- | --- |
