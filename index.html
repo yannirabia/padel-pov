@@ -88,6 +88,12 @@
   .status .team { display: block; margin: 4px 0; font-weight: 700; }
   #launchBtn { margin-top: 10px; }
   #onlineModes { margin-bottom: 8px; }
+  .deco { display: flex; gap: 16px; align-items: center; justify-content: center; margin-bottom: 20px; text-align: left; }
+  .decoFields { display: grid; gap: 8px; }
+  .decoFields label { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 8px; font: 700 13px system-ui, sans-serif; color: #4b5d7a; }
+  .decoFields select, .decoFields input { font: 600 14px system-ui, sans-serif; padding: 7px 9px; border: 2px solid #c9d4e4; border-radius: 10px;
+    color: #10223f; width: 170px; background: #fff; }
+  @media (max-width: 480px) { .deco { flex-direction: column; } }
   .controls { text-align: left; background: #eef3fa; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; font-size: 14px; line-height: 1.75; }
   kbd { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: 6px; background: #fff; border: 1px solid #c9d4e4;
     border-bottom-width: 3px; font: 600 12px/20px system-ui, sans-serif; text-align: center; color: #10223f; }
@@ -162,6 +168,15 @@
     </div>
     <div class="label">Couleur de la raquette</div>
     <div class="colors" id="colors"></div>
+    <div class="label">Personnaliser la raquette · facultatif</div>
+    <div class="deco">
+      <canvas id="decoPreview" width="128" height="150" aria-label="Aperçu de la raquette"></canvas>
+      <div class="decoFields">
+        <label>Drapeau<select id="decoFlag"><option value="">Aucun</option></select></label>
+        <label>Nom<input id="decoName" maxlength="12" placeholder="Aucun" autocomplete="off" spellcheck="false"></label>
+        <label>Numéro<input id="decoNum" maxlength="2" inputmode="numeric" placeholder="Aucun" autocomplete="off"></label>
+      </div>
+    </div>
     <div class="controls">
       <div><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou flèches : se déplacer</div>
       <div>Souris : viser · <b>Clic gauche</b> (ou <kbd>Espace</kbd>) : frapper — <b>maintenez</b> pour plus de puissance (et plus de risque)</div>
@@ -534,6 +549,90 @@ const trailPos = [];
 const marker = new THREE.Mesh(new THREE.RingGeometry(0.17, 0.24, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .55, depthWrite: false }));
 marker.rotation.x = -Math.PI / 2; marker.position.y = 0.014; marker.visible = false; scene.add(marker);
 
+// ---------- Personnalisation des raquettes : drapeau, nom, numéro ----------
+// Chaque élément est facultatif ; la taille s'adapte au nombre d'éléments choisis (1, 2 ou 3).
+function vbars(g, x, y, w, h, cols) { cols.forEach((c, i) => { g.fillStyle = c; g.fillRect(x + i * w / cols.length, y, w / cols.length + 1, h); }); }
+function hbars(g, x, y, w, h, cols, weights = cols.map(() => 1)) {
+  const tot = weights.reduce((a, b) => a + b, 0); let yy = y;
+  cols.forEach((c, i) => { const hh = h * weights[i] / tot; g.fillStyle = c; g.fillRect(x, yy, w, hh + 1); yy += hh; });
+}
+function star(g, cx, cy, r, color, stroke = false) {
+  g.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.42 : r;
+    g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+  }
+  g.closePath();
+  if (stroke) { g.strokeStyle = color; g.lineWidth = r * 0.18; g.stroke(); } else { g.fillStyle = color; g.fill(); }
+}
+function disc(g, cx, cy, r, color) { g.fillStyle = color; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill(); }
+function crescent(g, cx, cy, r, color, bg) { disc(g, cx, cy, r, color); disc(g, cx + r * 0.28, cy, r * 0.8, bg); }
+const FLAGS = {
+  fr: ['France', (g, x, y, w, h) => vbars(g, x, y, w, h, ['#0055a4', '#fff', '#ef4135'])],
+  pt: ['Portugal', (g, x, y, w, h) => { g.fillStyle = '#006600'; g.fillRect(x, y, w * 0.4, h); g.fillStyle = '#ff0000'; g.fillRect(x + w * 0.4, y, w * 0.6, h); disc(g, x + w * 0.4, y + h / 2, h * 0.22, '#ffcc00'); }],
+  ar: ['Argentine', (g, x, y, w, h) => { hbars(g, x, y, w, h, ['#74acdf', '#fff', '#74acdf']); disc(g, x + w / 2, y + h / 2, h * 0.12, '#f6b40e'); }],
+  br: ['Brésil', (g, x, y, w, h) => {
+    g.fillStyle = '#009c3b'; g.fillRect(x, y, w, h);
+    g.fillStyle = '#ffdf00'; g.beginPath(); g.moveTo(x + w * 0.08, y + h / 2); g.lineTo(x + w / 2, y + h * 0.1); g.lineTo(x + w * 0.92, y + h / 2); g.lineTo(x + w / 2, y + h * 0.9); g.fill();
+    disc(g, x + w / 2, y + h / 2, h * 0.22, '#002776'); }],
+  es: ['Espagne', (g, x, y, w, h) => hbars(g, x, y, w, h, ['#aa151b', '#f1bf00', '#aa151b'], [1, 2, 1])],
+  it: ['Italie', (g, x, y, w, h) => vbars(g, x, y, w, h, ['#009246', '#fff', '#ce2b37'])],
+  be: ['Belgique', (g, x, y, w, h) => vbars(g, x, y, w, h, ['#000', '#fdda24', '#ef3340'])],
+  de: ['Allemagne', (g, x, y, w, h) => hbars(g, x, y, w, h, ['#000', '#dd0000', '#ffce00'])],
+  nl: ['Pays-Bas', (g, x, y, w, h) => hbars(g, x, y, w, h, ['#ae1c28', '#fff', '#21468b'])],
+  gb: ['Royaume-Uni', (g, x, y, w, h) => {
+    g.fillStyle = '#012169'; g.fillRect(x, y, w, h);
+    g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+    const diag = (col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(x, y); g.lineTo(x + w, y + h); g.moveTo(x + w, y); g.lineTo(x, y + h); g.stroke(); };
+    diag('#fff', h * 0.2); diag('#c8102e', h * 0.07);
+    g.fillStyle = '#fff'; g.fillRect(x + w / 2 - h * 0.17, y, h * 0.34, h); g.fillRect(x, y + h / 2 - h * 0.17, w, h * 0.34);
+    g.fillStyle = '#c8102e'; g.fillRect(x + w / 2 - h * 0.1, y, h * 0.2, h); g.fillRect(x, y + h / 2 - h * 0.1, w, h * 0.2);
+    g.restore(); }],
+  ie: ['Irlande', (g, x, y, w, h) => vbars(g, x, y, w, h, ['#169b62', '#fff', '#ff883e'])],
+  ch: ['Suisse', (g, x, y, w, h) => { g.fillStyle = '#da291c'; g.fillRect(x, y, w, h); g.fillStyle = '#fff'; const c = h * 0.18; g.fillRect(x + w / 2 - c / 2, y + h * 0.2, c, h * 0.6); g.fillRect(x + w / 2 - h * 0.3, y + h / 2 - c / 2, h * 0.6, c); }],
+  us: ['États-Unis', (g, x, y, w, h) => {
+    hbars(g, x, y, w, h, Array.from({ length: 13 }, (_, i) => i % 2 ? '#fff' : '#b22234'));
+    g.fillStyle = '#3c3b6e'; g.fillRect(x, y, w * 0.4, h * 7 / 13);
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) disc(g, x + w * 0.4 * (c + 0.5) / 5, y + h * 7 / 13 * (r + 0.5) / 4, h * 0.025, '#fff'); }],
+  ma: ['Maroc', (g, x, y, w, h) => { g.fillStyle = '#c1272d'; g.fillRect(x, y, w, h); star(g, x + w / 2, y + h / 2, h * 0.26, '#006233', true); }],
+  dz: ['Algérie', (g, x, y, w, h) => { vbars(g, x, y, w, h, ['#006633', '#fff']); crescent(g, x + w / 2, y + h / 2, h * 0.25, '#d21034', ['#fff']); star(g, x + w / 2 + h * 0.12, y + h / 2, h * 0.1, '#d21034'); }],
+  tn: ['Tunisie', (g, x, y, w, h) => { g.fillStyle = '#e70013'; g.fillRect(x, y, w, h); disc(g, x + w / 2, y + h / 2, h * 0.3, '#fff'); crescent(g, x + w / 2, y + h / 2, h * 0.22, '#e70013', '#fff'); star(g, x + w / 2 + h * 0.07, y + h / 2, h * 0.09, '#e70013'); }],
+  sn: ['Sénégal', (g, x, y, w, h) => { vbars(g, x, y, w, h, ['#00853f', '#fdef42', '#e31b23']); star(g, x + w / 2, y + h / 2, h * 0.15, '#00853f'); }],
+  ci: ["Côte d'Ivoire", (g, x, y, w, h) => vbars(g, x, y, w, h, ['#f77f00', '#fff', '#009e60'])],
+  cm: ['Cameroun', (g, x, y, w, h) => { vbars(g, x, y, w, h, ['#007a5e', '#ce1126', '#fcd116']); star(g, x + w / 2, y + h / 2, h * 0.15, '#fcd116'); }],
+  jp: ['Japon', (g, x, y, w, h) => { g.fillStyle = '#fff'; g.fillRect(x, y, w, h); disc(g, x + w / 2, y + h / 2, h * 0.3, '#bc002d'); }],
+};
+// Dessine la déco sur un canevas de la forme de la tête de raquette (ovale). Renvoie false s'il n'y a rien à dessiner.
+function drawDeco(g, W, H, deco) {
+  const items = [];
+  if (deco && FLAGS[deco.flag]) items.push('flag');
+  if (deco && deco.name) items.push('name');
+  if (deco && deco.num !== '' && deco.num != null) items.push('num');
+  if (!items.length) return false;
+  const n = items.length, top = H * (n === 1 ? 0.25 : 0.15), avail = H * (n === 1 ? 0.5 : 0.7), slot = avail / n;
+  items.forEach((it, i) => {
+    const cy = top + slot * (i + 0.5), ny = (cy - H / 2) / (H / 2);
+    const maxW = W * Math.sqrt(Math.max(0, 1 - ny * ny)) * 0.8;      // largeur disponible dans l'ovale à cette hauteur
+    const h = slot * 0.82;
+    if (it === 'flag') {
+      const fh = Math.min(h * 0.9, maxW / 1.5), fw = fh * 1.5, fx = W / 2 - fw / 2, fy = cy - fh / 2;
+      FLAGS[deco.flag][1](g, fx, fy, fw, fh);
+      g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = Math.max(2, fh * 0.03); g.strokeRect(fx, fy, fw, fh);
+    } else {
+      const text = it === 'name' ? deco.name.toUpperCase() : String(deco.num);
+      let size = h * (it === 'num' ? 1 : 0.7);
+      const font = sz => `900 ${sz}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+      g.font = font(size);
+      while (g.measureText(text).width > maxW && size > 8) { size -= 2; g.font = font(size); }
+      g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+      g.lineWidth = size * 0.14; g.strokeStyle = 'rgba(0,0,0,.7)'; g.strokeText(text, W / 2, cy);
+      g.fillStyle = '#fff'; g.fillText(text, W / 2, cy);
+    }
+  });
+  return true;
+}
+const DECO_W = 512, DECO_H = 571;    // même proportion que la tête de raquette (0,26 x 0,29 m)
+
 // ---------- Raquettes ----------
 function makeRacket(color) {
   const g = new THREE.Group();
@@ -556,7 +655,22 @@ function makeRacket(color) {
   handle.position.y = -0.04;
   g.add(head, rim, throat, handle);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  g.userData = { headMat, rimMat };
+  // Déco imprimée sur les deux faces (canevas transparent posé sur la tête)
+  const cv = document.createElement('canvas'); cv.width = DECO_W; cv.height = DECO_H;
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const decoGeo = new THREE.ShapeGeometry(new THREE.Shape().absellipse(0, 0, 0.13, 0.145, 0, Math.PI * 2), 36);
+  const uv = decoGeo.attributes.uv, pp = decoGeo.attributes.position;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (pp.getX(i) + 0.13) / 0.26, (pp.getY(i) + 0.145) / 0.29);
+  const decoMat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: .5, polygonOffset: true, polygonOffsetFactor: -2 });
+  const front = new THREE.Mesh(decoGeo, decoMat), back = new THREE.Mesh(decoGeo, decoMat);
+  front.position.set(0, 0.26, 0.0195); back.position.set(0, 0.26, -0.0195); back.rotation.y = Math.PI;
+  front.visible = back.visible = false; g.add(front, back);
+  const setDeco = deco => {
+    const c2 = cv.getContext('2d'); c2.clearRect(0, 0, DECO_W, DECO_H);
+    front.visible = back.visible = drawDeco(c2, DECO_W, DECO_H, deco);
+    tex.needsUpdate = true;
+  };
+  g.userData = { headMat, rimMat, setDeco };
   return g;
 }
 let racketColor = COLORS.Bleu;
@@ -565,7 +679,7 @@ racket.scale.setScalar(0.85);
 const RACKET_BASE = { pos: new THREE.Vector3(0.36, -0.38, -0.66), rot: new THREE.Euler(-0.35, -0.25, -0.3) };
 racket.position.copy(RACKET_BASE.pos); racket.rotation.copy(RACKET_BASE.rot);
 camera.add(racket);
-function setRacketColor(c) { racketColor = c; racket.userData.headMat.color.setHex(c); }
+function setRacketColor(c) { racketColor = c; racket.userData.headMat.color.setHex(c); onRacketChange(); }
 // Avant-bras du joueur (vue à la première personne), aux couleurs du personnage choisi
 const fpSkin = new THREE.MeshStandardMaterial({ roughness: .6 }), fpBand = new THREE.MeshStandardMaterial({ roughness: .8 });
 {
@@ -584,10 +698,10 @@ function setArmColors(c) { fpSkin.color.setHex(c.skin); fpBand.color.setHex(c.sh
 // ---------- Personnages ----------
 // Couleurs de maillot inspirées des sélections nationales (sans écusson ni logo)
 const CHARS = {
-  ronaldo: { name: 'Ronaldo', num: 7,  shirt: 0xc8102e, trim: 0x0b6e3a, numCol: '#ffffff', shorts: 0x0b6e3a, socks: 0xc8102e, skin: 0xd6a072, hair: 0x18120d },
-  messi:   { name: 'Messi',   num: 10, shirt: 0x75aadb, trim: 0x1b1b3a, numCol: '#1b1b3a', shorts: 0x1b1b3a, socks: 0xffffff, skin: 0xe8c29b, hair: 0x4a3020, stripes: '#ffffff', beard: true },
-  neymar:  { name: 'Neymar',  num: 11, shirt: 0xffdf00, trim: 0x009c3b, numCol: '#009c3b', shorts: 0x1c3f94, socks: 0xffffff, skin: 0xc48a5c, hair: 0x2a1c12 },
-  mbappe:  { name: 'Mbappé',  num: 9,  shirt: 0x1e2f6e, trim: 0xc8102e, numCol: '#ffffff', shorts: 0xffffff, socks: 0xc8102e, skin: 0x7a4a2c, hair: 0x111111 },
+  ronaldo: { name: 'Ronaldo', flag: 'pt', num: 7,  shirt: 0xc8102e, trim: 0x0b6e3a, numCol: '#ffffff', shorts: 0x0b6e3a, socks: 0xc8102e, skin: 0xd6a072, hair: 0x18120d },
+  messi:   { name: 'Messi',   flag: 'ar', num: 10, shirt: 0x75aadb, trim: 0x1b1b3a, numCol: '#1b1b3a', shorts: 0x1b1b3a, socks: 0xffffff, skin: 0xe8c29b, hair: 0x4a3020, stripes: '#ffffff', beard: true },
+  neymar:  { name: 'Neymar',  flag: 'br', num: 11, shirt: 0xffdf00, trim: 0x009c3b, numCol: '#009c3b', shorts: 0x1c3f94, socks: 0xffffff, skin: 0xc48a5c, hair: 0x2a1c12 },
+  mbappe:  { name: 'Mbappé',  flag: 'fr', num: 9,  shirt: 0x1e2f6e, trim: 0xc8102e, numCol: '#ffffff', shorts: 0xffffff, socks: 0xc8102e, skin: 0x7a4a2c, hair: 0x111111 },
 };
 const hex = c => '#' + c.toString(16).padStart(6, '0');
 
@@ -619,7 +733,7 @@ function nameSprite(c) {
 }
 
 // Joueur articulé (≈ 1,80 m), tourné vers +z
-function makePlayer(key) {
+function makePlayer(key, deco) {
   const c = CHARS[key];
   const mat = col => new THREE.MeshStandardMaterial({ color: col, roughness: .75 });
   const skin = new THREE.MeshStandardMaterial({ color: c.skin, roughness: .6 });
@@ -670,7 +784,7 @@ function makePlayer(key) {
     return { sh, el };
   }
   const armL = arm(1), armR = arm(-1);         // tourné vers +z : la droite du joueur est en -x
-  const r = makeRacket(0xf5f5f5); r.scale.setScalar(0.95); r.position.y = -0.29; r.rotation.set(Math.PI, 0, 0.2); armR.el.add(r);
+  const r = makeRacket(deco && deco.color != null ? deco.color : 0xf5f5f5); r.userData.setDeco(deco || { flag: c.flag, num: '' }); r.scale.setScalar(0.95); r.position.y = -0.29; r.rotation.set(Math.PI, 0, 0.2); armR.el.add(r);
   group.add(nameSprite(c));
   group.traverse(o => { if (o.isMesh) o.castShadow = true; });
   scene.add(group);
@@ -835,7 +949,7 @@ const seatOf = who => who === HUMAN ? mySeat() : who.seat;
 const nameOf = who => who === HUMAN ? CHARS[myChar].name : CHARS[who.key].name;
 const mate = () => bots.find(b => b.team === 'P');
 
-const make = (key, team, lane, seat) => ({ key, team, lane, seat, model: makePlayer(key), x: 0, z: 0, tx: 0, tz: 0,
+const make = (key, team, lane, seat, deco) => ({ key, team, lane, seat, deco, model: makePlayer(key, deco), x: 0, z: 0, tx: 0, tz: 0,
   swing: 0, swingUsed: false, miss: false, walk: 0, run: 0, face: team === 'P' ? Math.PI : 0, serveTimer: 0, yaw: 0, pitch: 0, remote: false,
   power: 0, netRush: false });
 function clearBots() { for (const b of bots) scene.remove(b.model.group); bots = []; }
@@ -1093,6 +1207,7 @@ function swingInput(power = 0) {
 const keys = {};
 let locked = false, lockFailed = false, pausedAt = 0;
 addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input, select, textarea')) return;   // saisie dans le menu
   keys[e.code] = true;
   if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) chargeStart(); }
   if (e.code === 'Escape' && S.state === 'playing') {
@@ -1124,6 +1239,45 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 // ---------- Écrans ----------
+// Personnalisation de la raquette : drapeau, nom et numéro facultatifs, mémorisés dans le navigateur
+let deco = { flag: '', name: '', num: '' };
+function cleanDeco(d) {
+  if (!d || typeof d !== 'object') return null;
+  return { flag: FLAGS[d.flag] ? d.flag : '', name: String(d.name || '').slice(0, 12), num: String(d.num ?? '').replace(/\D/g, '').slice(0, 2),
+    color: Object.values(COLORS).includes(d.color) ? d.color : undefined };
+}
+const myDeco = () => ({ ...deco, color: racketColor });
+try {
+  const saved = cleanDeco(JSON.parse(localStorage.getItem('padel-deco')));
+  if (saved) { deco = { flag: saved.flag, name: saved.name, num: saved.num }; if (saved.color != null) racketColor = saved.color; }
+} catch (_) {}
+const decoCanvas = document.createElement('canvas'); decoCanvas.width = DECO_W; decoCanvas.height = DECO_H;
+function onRacketChange() {
+  racket.userData.setDeco(deco);
+  // aperçu : tête ovale de la couleur choisie, trous, cadre et déco
+  const g = $('decoPreview').getContext('2d'), W = 128, H = 150, cx = W / 2, cy = H / 2, rx = W / 2 - 6, ry = H / 2 - 6;
+  g.clearRect(0, 0, W, H);
+  g.save(); g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); g.clip();
+  g.fillStyle = hex(racketColor); g.fillRect(0, 0, W, H);
+  g.fillStyle = 'rgba(0,0,0,.28)';
+  for (let x = -3; x <= 3; x++) for (let y = -3; y <= 3; y++) {
+    if ((x / 3.4) ** 2 + (y / 3.6) ** 2 < 1) { g.beginPath(); g.arc(cx + x * 13, cy + y * 14, 3.2, 0, Math.PI * 2); g.fill(); }
+  }
+  const c2 = decoCanvas.getContext('2d'); c2.clearRect(0, 0, DECO_W, DECO_H);
+  if (drawDeco(c2, DECO_W, DECO_H, deco)) g.drawImage(decoCanvas, cx - rx, cy - ry, rx * 2, ry * 2);
+  g.restore();
+  g.lineWidth = 6; g.strokeStyle = '#15181d'; g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); g.stroke();
+  try { localStorage.setItem('padel-deco', JSON.stringify(myDeco())); } catch (_) {}
+}
+{
+  const sel = $('decoFlag');
+  Object.entries(FLAGS).sort((a, b) => a[1][0].localeCompare(b[1][0], 'fr'))
+    .forEach(([code, [name]]) => sel.add(new Option(name, code)));
+  sel.value = deco.flag; $('decoName').value = deco.name; $('decoNum').value = deco.num;
+  sel.onchange = () => { deco.flag = sel.value; onRacketChange(); };
+  $('decoName').oninput = e => { deco.name = e.target.value.slice(0, 12); onRacketChange(); };
+  $('decoNum').oninput = e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 2); deco.num = e.target.value; onRacketChange(); };
+}
 const sw = $('colors');
 for (const [name, c] of Object.entries(COLORS)) {
   const b = document.createElement('button');
@@ -1293,7 +1447,7 @@ $('joinBtn').onclick = () => {
     conn.on('data', onGuestData);
     conn.on('close', () => netLost('La connexion avec l’hôte a été perdue.'));
     conn.on('error', () => netLost('La connexion avec l’hôte a été perdue.'));
-    conn.on('open', () => { send({ t: 'hello', char: myChar }); netStatus('Connecté ! En attente de l’hôte…'); });
+    conn.on('open', () => { send({ t: 'hello', char: myChar, deco: myDeco() }); netStatus('Connecté ! En attente de l’hôte…'); });
   });
   peer.on('error', e => { netStatus(e.type === 'peer-unavailable' ? 'Partie introuvable : vérifiez le code.' : `Erreur réseau (${e.type}).`); NET.role = null; });
 };
@@ -1315,12 +1469,12 @@ function hostStart() {
   const free = Object.keys(CHARS).filter(k => !used.has(k));
   bots = seats.map(s => {
     const c = NET.seats[s];
-    const b = make(c ? c.char : (free.shift() || 'ronaldo'), s[0], NET.mode2 ? (s === 'A1' ? 1 : -1) : 0, s);
+    const b = make(c ? c.char : (free.shift() || 'ronaldo'), s[0], NET.mode2 ? (s === 'A1' ? 1 : -1) : 0, s, c ? c.deco : undefined);
     if (c) { b.remote = true; c.bot = b; c.lastRecv = performance.now(); }
     return b;
   });
   refreshTeams();
-  const seatList = [['P0', myChar], ...bots.map(b => [b.seat, b.key])];
+  const seatList = [['P0', myChar, myDeco()], ...bots.map(b => [b.seat, b.key, b.deco || null])];
   for (const c of NET.conns) if (c.open) c.send({ t: 'start', seats: seatList, you: c.seat, stadium });
   $('launchBtn').hidden = true;
   startGame();
@@ -1350,7 +1504,7 @@ function onHostData(conn, d) {
     // chaque star une seule fois : si elle est déjà prise, l'invité reçoit une star libre
     const taken = [myChar, ...Object.values(NET.seats).filter(Boolean).map(c => c.char)];
     const char = taken.includes(d.char) ? Object.keys(CHARS).find(k => !taken.includes(k)) : d.char;
-    Object.assign(conn, { seat, char }); NET.seats[seat] = conn; NET.conns.push(conn);
+    Object.assign(conn, { seat, char, deco: cleanDeco(d.deco) }); NET.seats[seat] = conn; NET.conns.push(conn);
     broadcastLobby();
     if (!NET.mode2) hostStart();
     return;
@@ -1379,9 +1533,9 @@ function onGuestData(d) {
       NET.seat = d.you; mode = d.seats.length === 4 ? 2 : 1; level = LEVELS.pro;
       if (d.stadium) setStadium(d.stadium);    // tout le monde joue dans le stade choisi par l'hôte
       clearBots();
-      for (const [seat, key] of d.seats) {
+      for (const [seat, key, deco] of d.seats) {
         if (seat === d.you) { myChar = key; continue; }
-        const b = make(key, seat[0], 0, seat); b.remote = true; bots.push(b);
+        const b = make(key, seat[0], 0, seat, cleanDeco(deco) || undefined); b.remote = true; bots.push(b);
       }
       refreshTeams();
       S.score.P = S.score.A = 0; S.over = false; updateScore();

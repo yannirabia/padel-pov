@@ -51,6 +51,7 @@ Sur certains réseaux très filtrés (Wi‑Fi d'entreprise ou d'école), la conn
 - 2 stades au choix (Anfield ou Vélodrome), avec quatre tribunes pleines de supporters qui sautent à chaque point — en ligne, tout le monde joue dans le stade choisi par l'hôte
 - Terrain bleu, lignes blanches, filet, parois vitrées et grillages
 - 5 couleurs de raquette : rouge, bleu, vert, jaune, violet
+- Raquette personnalisable : couleur, et au choix un **drapeau** (20 pays), un **nom** et/ou un **numéro** — 1, 2 ou 3 éléments, la taille s'adapte automatiquement ; aperçu en direct dans le menu, choix mémorisé, visible par vos adversaires en ligne
 - Assistance légère : portée de frappe généreuse, balle qui passe toujours le filet, anneau indiquant le point de rebond, raquette qui s'illumine quand la balle est à portée
 - Balle lumineuse avec traînée et ombre au sol
 - Rebonds sur le sol et les vitres, règles de padel simplifiées
