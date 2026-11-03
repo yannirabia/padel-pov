@@ -1,7 +1,7 @@
 # Padel POV 🎾
 
 Un jeu de padel en 3D à la première personne, jouable directement dans le navigateur (Three.js).
-Vue « casque VR » sans casque : choisissez votre star (Ronaldo, Messi, Neymar ou Mbappé) et affrontez l'ordinateur en 1 contre 1 ou en 2 contre 2 avec un coéquipier — ou vos amis **en ligne** (jusqu'à 4 joueurs), dans un stade aux tribunes rouges inspiré d'Anfield. Premier à 7 points.
+Vue « casque VR » sans casque : choisissez votre star (Ronaldo, Messi, Neymar ou Mbappé) et affrontez l'ordinateur en 1 contre 1 ou en 2 contre 2 avec un coéquipier — ou vos amis **en ligne** (jusqu'à 4 joueurs), dans un stade au choix : tribunes rouges inspirées d'Anfield, ou tribunes bleu ciel et blanches sous le toit ondulé du Vélodrome de Marseille. Premier à 7 points.
 
 ## Lancer le jeu
 
@@ -48,7 +48,7 @@ Sur certains réseaux très filtrés (Wi‑Fi d'entreprise ou d'école), la conn
 - Terrain de 11 × 22 m, un peu plus grand qu'un terrain officiel (10 × 20 m), pour des échanges plus aérés
 - 4 personnages au choix — Ronaldo, Messi, Neymar, Mbappé — avec maillot, numéro et nom, animés (course, frappe)
 - 3 niveaux : **Amateur**, **Pro**, **Expert** — l'adversaire court plus vite, se trompe moins et frappe plus fort et plus près des lignes à chaque niveau
-- Stade avec quatre tribunes pleines de supporters qui sautent à chaque point
+- 2 stades au choix (Anfield ou Vélodrome), avec quatre tribunes pleines de supporters qui sautent à chaque point — en ligne, tout le monde joue dans le stade choisi par l'hôte
 - Terrain bleu, lignes blanches, filet, parois vitrées et grillages
 - 5 couleurs de raquette : rouge, bleu, vert, jaune, violet
 - Assistance légère : portée de frappe généreuse, balle qui passe toujours le filet, anneau indiquant le point de rebond, raquette qui s'illumine quand la balle est à portée
