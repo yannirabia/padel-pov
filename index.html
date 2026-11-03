@@ -190,9 +190,9 @@ const COLORS = { Rouge: 0xe53935, Bleu: 0x1e88e5, Vert: 0x43a047, Jaune: 0xfdd83
 const SWING_TIME = 0.32;
 // Niveaux : vitesse de l'adversaire, taux d'erreur, puissance/précision de ses frappes, portée de frappe du joueur
 const LEVELS = {
-  amateur: { label: 'Amateur', aiSpeed: 3.5, miss: 0.24, rubber: 0.04, speed: [8.5, 10.5], wideX: 3.2, depth: [4.5, 7.5], drop: 0.0, aiReach: 1.2, reach: 2.4 },
-  pro:     { label: 'Pro',     aiSpeed: 4.4, miss: 0.12, rubber: 0.03, speed: [9.5, 12.5], wideX: 3.8, depth: [4.5, 8.0], drop: 0.06, aiReach: 1.3, reach: 2.1 },
-  expert:  { label: 'Expert',  aiSpeed: 5.3, miss: 0.05, rubber: 0.02, speed: [11.5, 14.5], wideX: 4.2, depth: [5.5, 8.6], drop: 0.12, aiReach: 1.45, reach: 1.9 },
+  amateur: { label: 'Amateur', aiSpeed: 3.5, miss: 0.24, rubber: 0.04, speed: [8.5, 10.5], wideX: 3.2, depth: [4.5, 7.5], drop: 0.0, aiReach: 1.1, reach: 1.7 },
+  pro:     { label: 'Pro',     aiSpeed: 4.4, miss: 0.12, rubber: 0.03, speed: [9.5, 12.5], wideX: 3.8, depth: [4.5, 8.0], drop: 0.06, aiReach: 1.2, reach: 1.4 },
+  expert:  { label: 'Expert',  aiSpeed: 5.3, miss: 0.05, rubber: 0.02, speed: [11.5, 14.5], wideX: 4.2, depth: [5.5, 8.6], drop: 0.12, aiReach: 1.35, reach: 1.15 },
 };
 let level = LEVELS.pro;
 
@@ -861,7 +861,7 @@ function playerCanHit() {
   const sg = NET.role === 'guest' ? -1 : 1;
   if (S.phase !== 'rally' || S.lastHitter !== oppTeam() || ball.p.z * sg < -0.2) return false;
   const d = Math.hypot(ball.p.x - meX(), ball.p.z - meZ());
-  return d < level.reach && ball.p.y > 0.05 && ball.p.y < 2.8;
+  return d < level.reach && ball.p.y > 0.05 && ball.p.y < 2.4;
 }
 
 function swingInput() {
@@ -1065,7 +1065,7 @@ function hostStart() {
 function remoteCanHit(b) {
   if (S.phase !== 'rally' || S.lastHitter !== 'P' || ball.p.z > 0.2) return false;
   // portée un peu plus grande pour compenser le délai réseau
-  return Math.hypot(ball.p.x - b.x, ball.p.z - b.z) < LEVELS.pro.reach + 0.5 && ball.p.y > 0.05 && ball.p.y < 2.8;
+  return Math.hypot(ball.p.x - b.x, ball.p.z - b.z) < LEVELS.pro.reach + 0.35 && ball.p.y > 0.05 && ball.p.y < 2.5;
 }
 // Invité : l'adversaire (l'hôte) est un joueur distant de l'équipe 'P'
 function setupGuest(hostChar) {
@@ -1174,7 +1174,7 @@ function updateBot(b, dt) {
     return;
   }
   const sgn = b.team === 'P' ? 1 : -1;
-  const speed = b.team === 'A' ? level.aiSpeed : 4.6, reach = b.team === 'A' ? level.aiReach : 1.35;
+  const speed = b.team === 'A' ? level.aiSpeed : 4.6, reach = b.team === 'A' ? level.aiReach : 1.2;
   if (S.phase === 'rally' && S.lastHitter !== b.team && S.assigned === b) {
     const pr = S.target, off = b.miss ? (pr.x > 0 ? -1.8 : 1.8) : 0;
     b.tx = pr.x + off; b.tz = pr.z + 0.25 * sgn;
