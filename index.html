@@ -66,8 +66,9 @@
   .lv small { display: block; font-weight: 600; letter-spacing: 0; font-size: 11px; opacity: .75; }
   .row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
   .row .levels { margin-bottom: 14px; }
-  .chars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
-  #other { grid-template-columns: repeat(3, 1fr); }
+  .chars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 16px; }
+  #other { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 480px) { .chars, #other { grid-template-columns: repeat(3, 1fr); } }
   .ch { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border: 2px solid #dbe3ef; border-radius: 14px;
     background: #fff; font: 800 13px system-ui, sans-serif; color: #10223f; cursor: pointer; transition: transform .1s, border-color .1s; }
   .ch:hover { transform: translateY(-2px); }
@@ -127,7 +128,7 @@
 <div class="overlay show" id="menu">
   <div class="panel">
     <h1>PLAY <span>PADEL</span></h1>
-    <p class="sub">Choisissez votre star · Premier à 7 points</p>
+    <p class="sub">Choisissez votre champion · Premier à 7 points</p>
     <div class="row">
       <div><div class="label">Mode</div>
         <div class="levels" id="modes">
@@ -146,13 +147,6 @@
           <button class="lv" data-st="anfield">ANFIELD</button>
           <button class="lv" data-st="velodrome">VÉLODROME</button>
         </div></div>
-    </div>
-    <div class="label">Votre joueur</div>
-    <div class="chars" id="mine"></div>
-    <div id="otherBox">
-      <div class="label" id="otherLabel">Adversaire</div>
-      <div class="chars" id="other"></div>
-      <p class="vs" id="vsLine"></p>
     </div>
     <div id="onlineBox" class="online" hidden>
       <div class="label">Partie en ligne</div>
@@ -184,6 +178,23 @@
       <div>Regarder en haut = lob · en bas = amortie · balle haute près du filet = <b>smash</b> · <kbd>Échap</kbd> : pause</div>
     </div>
     <button class="big" id="play">Jouer</button>
+  </div>
+</div>
+
+<!-- Choix des joueurs (au lancement d'une partie) -->
+<div class="overlay" id="select">
+  <div class="panel">
+    <h2>Choix des joueurs</h2>
+    <p class="sub" id="selectSub"></p>
+    <div class="label">Votre joueur</div>
+    <div class="chars" id="mine"></div>
+    <div id="otherBox">
+      <div class="label" id="otherLabel">Adversaire</div>
+      <div class="chars" id="other"></div>
+      <p class="vs" id="vsLine"></p>
+    </div>
+    <button class="big" id="selectGo">Commencer le match</button><br>
+    <button class="ghost" id="selectBack">Retour</button>
   </div>
 </div>
 
@@ -569,6 +580,7 @@ function disc(g, cx, cy, r, color) { g.fillStyle = color; g.beginPath(); g.arc(c
 function crescent(g, cx, cy, r, color, bg) { disc(g, cx, cy, r, color); disc(g, cx + r * 0.28, cy, r * 0.8, bg); }
 const FLAGS = {
   fr: ['France', (g, x, y, w, h) => vbars(g, x, y, w, h, ['#0055a4', '#fff', '#ef4135'])],
+  rs: ['Serbie', (g, x, y, w, h) => hbars(g, x, y, w, h, ['#c6363c', '#0c4076', '#fff'])],
   pt: ['Portugal', (g, x, y, w, h) => { g.fillStyle = '#006600'; g.fillRect(x, y, w * 0.4, h); g.fillStyle = '#ff0000'; g.fillRect(x + w * 0.4, y, w * 0.6, h); disc(g, x + w * 0.4, y + h / 2, h * 0.22, '#ffcc00'); }],
   ar: ['Argentine', (g, x, y, w, h) => { hbars(g, x, y, w, h, ['#74acdf', '#fff', '#74acdf']); disc(g, x + w / 2, y + h / 2, h * 0.12, '#f6b40e'); }],
   br: ['Brésil', (g, x, y, w, h) => {
@@ -696,12 +708,13 @@ const fpSkin = new THREE.MeshStandardMaterial({ roughness: .6 }), fpBand = new T
 function setArmColors(c) { fpSkin.color.setHex(c.skin); fpBand.color.setHex(c.shirt); }
 
 // ---------- Personnages ----------
-// Couleurs de maillot inspirées des sélections nationales (sans écusson ni logo)
+// Joueurs de tennis : tenues aux couleurs de leur pays (sans logo de marque), initiales pour le menu
 const CHARS = {
-  ronaldo: { name: 'Ronaldo', flag: 'pt', num: 7,  shirt: 0xc8102e, trim: 0x0b6e3a, numCol: '#ffffff', shorts: 0x0b6e3a, socks: 0xc8102e, skin: 0xd6a072, hair: 0x18120d },
-  messi:   { name: 'Messi',   flag: 'ar', num: 10, shirt: 0x75aadb, trim: 0x1b1b3a, numCol: '#1b1b3a', shorts: 0x1b1b3a, socks: 0xffffff, skin: 0xe8c29b, hair: 0x4a3020, stripes: '#ffffff', beard: true },
-  neymar:  { name: 'Neymar',  flag: 'br', num: 11, shirt: 0xffdf00, trim: 0x009c3b, numCol: '#009c3b', shorts: 0x1c3f94, socks: 0xffffff, skin: 0xc48a5c, hair: 0x2a1c12 },
-  mbappe:  { name: 'Mbappé',  flag: 'fr', num: 9,  shirt: 0x1e2f6e, trim: 0xc8102e, numCol: '#ffffff', shorts: 0xffffff, socks: 0xc8102e, skin: 0x7a4a2c, hair: 0x111111 },
+  djokovic: { name: 'Djokovic', ini: 'ND', flag: 'rs', shirt: 0x0c4076, trim: 0xc6363c, numCol: '#ffffff', shorts: 0xffffff, socks: 0xffffff, skin: 0xe3b58f, hair: 0x2b1d14 },
+  nadal:    { name: 'Nadal',    ini: 'RN', flag: 'es', shirt: 0xf1bf00, trim: 0xaa151b, numCol: '#aa151b', shorts: 0xffffff, socks: 0xffffff, skin: 0xcf9a6b, hair: 0x23160e },
+  federer:  { name: 'Federer',  ini: 'RF', flag: 'ch', shirt: 0xf6f6f6, trim: 0xda291c, numCol: '#da291c', shorts: 0xffffff, socks: 0xffffff, skin: 0xe8c29b, hair: 0x4a3020 },
+  alcaraz:  { name: 'Alcaraz',  ini: 'CA', flag: 'es', shirt: 0xaa151b, trim: 0xf1bf00, numCol: '#ffffff', shorts: 0x1a1a1a, socks: 0xffffff, skin: 0xd8a77d, hair: 0x2a1a10 },
+  sinner:   { name: 'Sinner',   ini: 'JS', flag: 'it', shirt: 0x1e5aa8, trim: 0xffffff, numCol: '#ffffff', shorts: 0xffffff, socks: 0xffffff, skin: 0xf0cfb0, hair: 0xb5562a },
 };
 const hex = c => '#' + c.toString(16).padStart(6, '0');
 
@@ -710,13 +723,13 @@ function shirtTexture(c) {
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256;
   const g = cv.getContext('2d');
   g.fillStyle = hex(c.shirt); g.fillRect(0, 0, 512, 256);
-  if (c.stripes) { g.fillStyle = c.stripes; for (let x = 16; x < 512; x += 64) g.fillRect(x, 0, 28, 256); }
-  g.fillStyle = hex(c.trim); g.fillRect(0, 0, 512, 14); g.fillRect(0, 242, 512, 14);
+  // polo de tennis : col et bas de couleur, nom dans le dos, petit drapeau sur la poitrine
+  g.fillStyle = hex(c.trim); g.fillRect(0, 0, 512, 16); g.fillRect(0, 244, 512, 12);
+  g.fillRect(232, 16, 48, 6); g.fillRect(0, 16, 20, 6); g.fillRect(492, 16, 20, 6);
   g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = c.numCol;
-  g.lineWidth = 6; g.strokeStyle = c.stripes ? hex(c.shirt) : 'rgba(0,0,0,0)';
-  g.font = '800 30px system-ui, sans-serif'; g.fillText(c.name.toUpperCase(), 256, 52);
-  g.font = '900 120px system-ui, sans-serif'; g.strokeText(c.num, 256, 140); g.fillText(c.num, 256, 140);
-  g.font = '900 40px system-ui, sans-serif'; g.fillText(c.num, 470, 80);
+  g.font = '900 52px system-ui, sans-serif'; g.fillText(c.name.toUpperCase(), 256, 96);
+  FLAGS[c.flag][1](g, 452, 62, 36, 24);
+  g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 2; g.strokeRect(452, 62, 36, 24);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   return t;
 }
@@ -933,7 +946,7 @@ const S = { state: 'menu', paused: false, score: { P: 0, A: 0 }, phase: 'serve',
   lastQ: 0.6, pressure: 0, missProb: null, serveShot: false, faults: 0, secondServe: false };
 const player = { x: 2, z: BASE_Z, yaw: 0.12, pitch: -0.1, swing: 0, swingUsed: false, bob: 0, charging: false, charge: 0, power: 0 };
 const ball = { p: new THREE.Vector3(), v: new THREE.Vector3(), held: true, dead: false, rolling: false };
-let mode = 1, online = false, onlineMode = 1, myChar = 'messi', otherChar = 'ronaldo';
+let mode = 1, online = false, onlineMode = 1, myChar = 'federer', otherChar = 'nadal';
 let bots = [];
 const label = { P: '', A: '' };
 const KX = HALF_W / 5, KZ = HALF_L / 10;      // les zones visées ont été réglées pour un terrain de 10 x 20 m
@@ -1296,7 +1309,7 @@ function segmented(id, onPick) {
 segmented('levels', d => { level = LEVELS[d.lv]; $('target').textContent = `Premier à ${WIN} points · Niveau ${level.label}`; });
 segmented('modes', d => {
   online = d.mode === 'online'; mode = online ? 1 : +d.mode;
-  $('levelBox').hidden = $('otherBox').hidden = $('play').hidden = online; $('onlineBox').hidden = !online;
+  $('levelBox').hidden = $('play').hidden = online; $('onlineBox').hidden = !online;
   if (!online) { netReset(); netStatus(''); }
   renderPickers();
 });
@@ -1307,7 +1320,7 @@ $('stadiums').querySelectorAll('.lv').forEach(b => b.classList.toggle('sel', b.d
 function charCard(key, selected, onPick) {
   const c = CHARS[key], b = document.createElement('button');
   b.className = 'ch' + (selected ? ' sel' : '');
-  b.innerHTML = `<span class="badge" style="background:${hex(c.shirt)};color:${c.numCol}">${c.num}</span>${c.name}`;
+  b.innerHTML = `<span class="badge" style="background:${hex(c.shirt)};color:${c.numCol}">${c.ini}</span>${c.name}`;
   b.onclick = onPick;
   return b;
 }
@@ -1320,7 +1333,26 @@ function renderPickers() {
   $('vsLine').textContent = mode === 1 ? '' : `Adversaires : ${label.A.replace(' / ', ' et ')}`;
 }
 
-function show(id) { for (const o of ['menu', 'pause', 'end']) $(o).classList.toggle('show', o === id); }
+function show(id) { for (const o of ['menu', 'select', 'pause', 'end']) $(o).classList.toggle('show', o === id); }
+// Écran de choix des joueurs, ouvert au lancement d'une partie. kind : 'local' (hors ligne), 'host' (créer), 'join' (rejoindre)
+let selectKind = 'local';
+function openSelect(kind) {
+  selectKind = kind;
+  const net = kind !== 'local';
+  $('otherBox').hidden = net;
+  $('selectSub').textContent = kind === 'local' ? `${mode === 1 ? '1 contre 1' : '2 contre 2'} · Niveau ${level.label} · ${STADIUMS[stadium].label}`
+    : kind === 'host' ? `Partie en ligne · ${onlineMode === 1 ? '1 contre 1' : '2 contre 2'} · les autres choisiront leur joueur`
+    : 'Partie en ligne · si votre joueur est déjà pris, un autre vous sera attribué';
+  $('selectGo').textContent = { local: 'Commencer le match', host: 'Créer la partie', join: 'Rejoindre la partie' }[kind];
+  renderPickers();
+  show('select');
+}
+$('selectBack').onclick = () => show('menu');
+$('selectGo').onclick = () => {
+  if (selectKind === 'local') return startGame();
+  show('menu');                        // on revient au menu pour voir le code / la salle d'attente
+  if (selectKind === 'host') hostCreate(); else guestJoin();
+};
 function startGame() {
   NET.lastRecv = performance.now();
   initAudio(); show(null); $('hud').style.display = 'block';
@@ -1353,11 +1385,11 @@ function endGame() {
   sfx(won ? 'victory' : 'lose');
   if (locked) document.exitPointerLock();
 }
-$('play').onclick = startGame;
+$('play').onclick = () => openSelect('local');
 $('replay').onclick = () => {
   if (NET.role === 'host') hostStart();
   else if (NET.role === 'guest') { send({ t: 'again' }); $('endLevel').textContent = 'Revanche demandée… en attente de l’hôte'; }
-  else startGame();
+  else openSelect('local');
 };
 $('resume').onclick = resume;
 $('quit').onclick = toMenu;
@@ -1420,6 +1452,9 @@ function broadcastLobby() {
 
 $('hostBtn').onclick = () => {
   if (!window.Peer) return netStatus('Impossible de charger le module réseau (vérifiez votre connexion).');
+  openSelect('host');
+};
+function hostCreate() {
   initAudio(); netReset();
   Object.assign(NET, { role: 'host', mode2: onlineMode === 2, code: genCode() });
   NET.seats = NET.mode2 ? { A0: null, P1: null, A1: null } : { A0: null };
@@ -1433,12 +1468,16 @@ $('hostBtn').onclick = () => {
     conn.on('error', () => hostConnLost(conn));
   });
   peer.on('error', e => netStatus(e.type === 'unavailable-id' ? 'Code déjà utilisé, réessayez.' : `Erreur réseau (${e.type}).`));
-};
+}
 $('launchBtn').onclick = () => { if (NET.role === 'host' && !NET.started) hostStart(); };
 $('joinBtn').onclick = () => {
   const code = $('code').value.trim().toUpperCase();
   if (code.length !== 4) return netStatus('Entrez le code à 4 caractères reçu de l’hôte.');
   if (!window.Peer) return netStatus('Impossible de charger le module réseau (vérifiez votre connexion).');
+  openSelect('join');
+};
+function guestJoin() {
+  const code = $('code').value.trim().toUpperCase();
   initAudio(); netReset(); NET.role = 'guest';
   const peer = new Peer(); NET.peer = peer;
   netStatus('Connexion…');
@@ -1450,7 +1489,7 @@ $('joinBtn').onclick = () => {
     conn.on('open', () => { send({ t: 'hello', char: myChar, deco: myDeco() }); netStatus('Connecté ! En attente de l’hôte…'); });
   });
   peer.on('error', e => { netStatus(e.type === 'peer-unavailable' ? 'Partie introuvable : vérifiez le code.' : `Erreur réseau (${e.type}).`); NET.role = null; });
-};
+}
 $('code').addEventListener('keydown', e => { if (e.key === 'Enter') $('joinBtn').click(); e.stopPropagation(); });
 
 // Un joueur ne donne plus signe de vie (onglet fermé, réseau coupé) : on le remplace ou on arrête
@@ -1469,7 +1508,7 @@ function hostStart() {
   const free = Object.keys(CHARS).filter(k => !used.has(k));
   bots = seats.map(s => {
     const c = NET.seats[s];
-    const b = make(c ? c.char : (free.shift() || 'ronaldo'), s[0], NET.mode2 ? (s === 'A1' ? 1 : -1) : 0, s, c ? c.deco : undefined);
+    const b = make(c ? c.char : (free.shift() || Object.keys(CHARS)[0]), s[0], NET.mode2 ? (s === 'A1' ? 1 : -1) : 0, s, c ? c.deco : undefined);
     if (c) { b.remote = true; c.bot = b; c.lastRecv = performance.now(); }
     return b;
   });
@@ -1503,7 +1542,7 @@ function onHostData(conn, d) {
     if (!seat) { conn.send({ t: 'full' }); setTimeout(() => conn.close(), 500); return; }
     // chaque star une seule fois : si elle est déjà prise, l'invité reçoit une star libre
     const taken = [myChar, ...Object.values(NET.seats).filter(Boolean).map(c => c.char)];
-    const char = taken.includes(d.char) ? Object.keys(CHARS).find(k => !taken.includes(k)) : d.char;
+    const char = !CHARS[d.char] || taken.includes(d.char) ? Object.keys(CHARS).find(k => !taken.includes(k)) : d.char;
     Object.assign(conn, { seat, char, deco: cleanDeco(d.deco) }); NET.seats[seat] = conn; NET.conns.push(conn);
     broadcastLobby();
     if (!NET.mode2) hostStart();
