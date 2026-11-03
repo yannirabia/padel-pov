@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Padel POV</title>
+<title>Play Padel</title>
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1730;
@@ -126,7 +126,7 @@
 <!-- Accueil -->
 <div class="overlay show" id="menu">
   <div class="panel">
-    <h1>PADEL <span>POV</span></h1>
+    <h1>PLAY <span>PADEL</span></h1>
     <p class="sub">Choisissez votre star · Premier à 7 points</p>
     <div class="row">
       <div><div class="label">Mode</div>
@@ -400,7 +400,7 @@ function boards(group, color) {
   const tex = canvasTex(512, (g, s) => {
     g.fillStyle = color; g.fillRect(0, 0, s, s);
     g.fillStyle = '#fff'; g.font = '900 150px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('PADEL POV', s / 2, s / 2);
+    g.fillText('PLAY PADEL', s / 2, s / 2);
   });
   const one = (cx, cz, len, rotY) => {
     const t = tex.clone(); t.needsUpdate = true; t.repeat.set(len / 4, 1);

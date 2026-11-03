@@ -1,4 +1,4 @@
-# Padel POV 🎾
+# Play Padel 🎾
 
 Un jeu de padel en 3D à la première personne, jouable directement dans le navigateur (Three.js).
 Vue « casque VR » sans casque : choisissez votre star (Ronaldo, Messi, Neymar ou Mbappé) et affrontez l'ordinateur en 1 contre 1 ou en 2 contre 2 avec un coéquipier — ou vos amis **en ligne** (jusqu'à 4 joueurs), dans un stade au choix : tribunes rouges inspirées d'Anfield, ou tribunes bleu ciel et blanches sous le toit ondulé du Vélodrome de Marseille. Premier à 7 points.
