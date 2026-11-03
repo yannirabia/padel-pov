@@ -46,6 +46,12 @@
     box-shadow: 0 0 0 2px #d6deea; transition: transform .12s, box-shadow .12s; }
   .sw:hover { transform: scale(1.08); }
   .sw.sel { box-shadow: 0 0 0 3px #10223f; transform: scale(1.1); }
+  .levels { display: inline-flex; background: #eef3fa; border-radius: 14px; padding: 4px; gap: 4px; margin-bottom: 22px; }
+  .lv { font: 800 14px system-ui, sans-serif; letter-spacing: .06em; border: 0; border-radius: 10px; padding: 10px 18px;
+    background: none; color: #4b5d7a; cursor: pointer; }
+  .lv:hover { color: #10223f; }
+  .lv.sel { background: #fff; color: #10223f; box-shadow: 0 2px 8px rgba(16,34,63,.15); }
+  .lv small { display: block; font-weight: 600; letter-spacing: 0; font-size: 11px; opacity: .75; }
   .controls { text-align: left; background: #eef3fa; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; font-size: 14px; line-height: 1.75; }
   kbd { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: 6px; background: #fff; border: 1px solid #c9d4e4;
     border-bottom-width: 3px; font: 600 12px/20px system-ui, sans-serif; text-align: center; color: #10223f; }
@@ -62,12 +68,12 @@
 
 <div id="hud">
   <div id="score">
-    <div class="side"><span class="dot" id="pdot"></span>VOUS</div>
+    <div class="side"><span class="dot" id="pdot"></span>FEDERER</div>
     <div class="pts" id="sP">0</div>
     <div class="pts" id="sA" style="background:#e8edf5">0</div>
-    <div class="side">ORDI<span class="dot" style="background:#ff7a1a"></span></div>
+    <div class="side">NADAL<span class="dot" style="background:#ff7a1a"></span></div>
   </div>
-  <div id="target">Premier à 7 points</div>
+  <div id="target">Premier à 7 points · Niveau Pro</div>
   <div id="cross"></div>
   <div id="msg"></div>
   <div id="hint">Clic gauche : frapper · Regarder en haut : lob · Regarder en bas : balle courte · Échap : pause</div>
@@ -77,7 +83,13 @@
 <div class="overlay show" id="menu">
   <div class="panel">
     <h1>PADEL <span>POV</span></h1>
-    <p class="sub">Match en 1 contre 1 · Premier à 7 points</p>
+    <p class="sub">Federer contre Nadal · Premier à 7 points</p>
+    <div class="label">Niveau</div>
+    <div class="levels" id="levels">
+      <button class="lv" data-lv="amateur">AMATEUR<small>Pour débuter</small></button>
+      <button class="lv sel" data-lv="pro">PRO<small>Équilibré</small></button>
+      <button class="lv" data-lv="expert">EXPERT<small>Nadal ne lâche rien</small></button>
+    </div>
     <div class="label">Couleur de la raquette</div>
     <div class="colors" id="colors"></div>
     <div class="controls">
@@ -105,8 +117,9 @@
   <div class="panel">
     <h2 id="endTitle">Victoire !</h2>
     <div class="final" id="endScore">7 – 3</div>
+    <p class="sub" id="endLevel" style="margin-top:-12px"></p>
     <button class="big" id="replay">Rejouer</button><br>
-    <button class="ghost" id="toMenu">Changer de raquette</button>
+    <button class="ghost" id="toMenu">Changer de niveau ou de raquette</button>
   </div>
 </div>
 
@@ -125,6 +138,14 @@ const R = 0.075;                        // rayon de la balle (légèrement gross
 const WIN = 7;
 const COLORS = { Rouge: 0xe53935, Bleu: 0x1e88e5, Vert: 0x43a047, Jaune: 0xfdd835, Violet: 0x8e24aa };
 const SWING_TIME = 0.32;
+const P_NAME = 'Federer', A_NAME = 'Nadal';
+// Niveaux : vitesse de l'adversaire, taux d'erreur, puissance/précision de ses frappes, portée de frappe du joueur
+const LEVELS = {
+  amateur: { label: 'Amateur', aiSpeed: 3.5, miss: 0.24, rubber: 0.04, speed: [8.5, 10.5], wideX: 3.2, depth: [4.5, 7.5], drop: 0.0, aiReach: 1.2, reach: 2.4 },
+  pro:     { label: 'Pro',     aiSpeed: 4.4, miss: 0.12, rubber: 0.03, speed: [9.5, 12.5], wideX: 3.8, depth: [4.5, 8.0], drop: 0.06, aiReach: 1.3, reach: 2.1 },
+  expert:  { label: 'Expert',  aiSpeed: 5.3, miss: 0.05, rubber: 0.02, speed: [11.5, 14.5], wideX: 4.2, depth: [5.5, 8.6], drop: 0.12, aiReach: 1.45, reach: 1.9 },
+};
+let level = LEVELS.pro;
 
 const $ = id => document.getElementById(id);
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -143,7 +164,7 @@ const canvas = renderer.domElement;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x9fd2f7);
-scene.fog = new THREE.Fog(0x9fd2f7, 35, 90);
+scene.fog = new THREE.Fog(0x9fd2f7, 70, 160);
 
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 200);
 camera.rotation.order = 'YXZ';
@@ -257,12 +278,106 @@ for (const s of [-1, 1]) {
     for (const pz of [8, 6, 4, 2, 0]) post(x, s * pz, pz >= 8 ? 4 : 3);
   }
 }
-// Mâts d'éclairage (décor)
-for (const [x, z] of [[-7, -11], [7, -11], [-7, 11], [7, 11]]) {
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 8, 10), frameMat);
-  m.position.set(x, 4, z); m.castShadow = true; scene.add(m);
-  const l = new THREE.Mesh(new THREE.BoxGeometry(1, 0.15, 0.5), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffee, emissiveIntensity: .8 }));
-  l.position.set(x * 0.92, 8, z * 0.95); l.lookAt(0, 0, 0); scene.add(l);
+// ---------- Stade : tribunes rouges façon Anfield ----------
+// Panneaux publicitaires autour du terrain
+const boardTex = canvasTex(512, (g, s) => {
+  g.fillStyle = '#c8102e'; g.fillRect(0, 0, s, s);
+  g.fillStyle = '#fff'; g.font = '900 150px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('PADEL POV', s / 2, s / 2);
+});
+function boards(cx, cz, len, rotY) {
+  const t = boardTex.clone(); t.needsUpdate = true; t.repeat.set(len / 4, 1);
+  const b = new THREE.Mesh(new THREE.BoxGeometry(len, 0.9, 0.1), [frameMat, frameMat, frameMat, frameMat,
+    new THREE.MeshStandardMaterial({ map: t, emissive: 0x330000 }), new THREE.MeshStandardMaterial({ map: t, emissive: 0x330000 })]);
+  b.position.set(cx, 0.45, cz); b.rotation.y = rotY; scene.add(b);
+}
+boards(0, -13.6, 17, 0); boards(0, 13.6, 17, 0); boards(-8.6, 0, 27, Math.PI / 2); boards(8.6, 0, 27, Math.PI / 2);
+
+let cheer = 0;
+const crowd = [];   // { mesh, heads, base: Float32Array, n }
+const stepMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const bodyGeo = new THREE.BoxGeometry(0.42, 0.6, 0.3), headGeo = new THREE.SphereGeometry(0.12, 6, 5);
+const crowdMat = new THREE.MeshLambertMaterial(), headMat = new THREE.MeshLambertMaterial();
+const SHIRTS = [0xc8102e, 0xc8102e, 0xc8102e, 0xe31b23, 0xffffff, 0x1d1d1d, 0xf6eb61, 0x00a398];
+const SKINS = [0xf1c27d, 0xe0ac69, 0xc68642, 0x8d5524, 0xffdbac];
+// Tribune : rangées en gradins le long d'un côté. dir = vecteur sortant (unité, axe x ou z), center = début des gradins
+function stand({ dir, start, length, rows, rowDepth = 0.85, rowH = 0.5, base = 1.2, name = '' }) {
+  const across = new THREE.Vector3(dir.z, 0, -dir.x);          // direction le long de la tribune
+  const rotY = Math.atan2(dir.x, dir.z);                        // personnages tournés vers le terrain
+  const steps = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), stepMat, rows);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+  const pos = new THREE.Vector3(), scl = new THREE.Vector3();
+  for (let r = 0; r < rows; r++) {
+    const h = base + r * rowH, out = start + (r + 0.5) * rowDepth;
+    pos.copy(dir).multiplyScalar(out).setY(h / 2); scl.set(length, h, rowDepth);
+    steps.setMatrixAt(r, m.compose(pos, q, scl));
+    steps.setColorAt(r, new THREE.Color(r % 2 ? 0xa50d26 : 0xb8102b));   // sièges rouges
+  }
+  scene.add(steps);
+  // Supporters
+  const per = Math.floor(length / 0.55), max = rows * per;
+  const bodies = new THREE.InstancedMesh(bodyGeo, crowdMat, max), heads = new THREE.InstancedMesh(headGeo, headMat, max);
+  const basePos = new Float32Array(max * 3); let n = 0;
+  for (let r = 0; r < rows; r++) for (let i = 0; i < per; i++) {
+    if (Math.random() < 0.12) continue;                            // quelques sièges vides
+    const h = base + r * rowH, out = start + (r + 0.5) * rowDepth;
+    const along = -length / 2 + (i + 0.5) * (length / per) + rand(-0.06, 0.06);
+    pos.copy(dir).multiplyScalar(out).addScaledVector(across, along).setY(h + 0.3);
+    basePos.set([pos.x, pos.y, pos.z], n * 3);
+    bodies.setMatrixAt(n, m.compose(pos, q, scl.set(1, rand(0.9, 1.1), 1)));
+    bodies.setColorAt(n, new THREE.Color(SHIRTS[(Math.random() * SHIRTS.length) | 0]));
+    heads.setMatrixAt(n, m.makeTranslation(pos.x, pos.y + 0.45, pos.z));
+    heads.setColorAt(n, new THREE.Color(SKINS[(Math.random() * SKINS.length) | 0]));
+    n++;
+  }
+  bodies.count = heads.count = n;
+  scene.add(bodies, heads);
+  crowd.push({ bodies, heads, basePos, n, q });
+  // Toit incliné, piliers et bandeau
+  const depth = rows * rowDepth, top = base + rows * rowH;
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(length + 1, 0.3, depth * 0.75), new THREE.MeshLambertMaterial({ color: 0x3a3f47 }));
+  roof.position.copy(dir).multiplyScalar(start + depth * 0.62).setY(top + 3.2);
+  roof.quaternion.copy(q); roof.rotateX(-0.08); scene.add(roof);
+  for (let k = -1; k <= 1; k += 0.5) {
+    const col = new THREE.Mesh(new THREE.BoxGeometry(0.25, top + 3.2, 0.25), frameMat);
+    col.position.copy(dir).multiplyScalar(start + depth).addScaledVector(across, k * length / 2.1).setY((top + 3.2) / 2); scene.add(col);
+  }
+  // Rampe de projecteurs sous le bord du toit
+  const lights = new THREE.Mesh(new THREE.BoxGeometry(length * 0.9, 0.2, 0.3), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfffbe6, emissiveIntensity: 1 }));
+  lights.position.copy(dir).multiplyScalar(start + depth * 0.62 - depth * 0.36).setY(top + 2.95); lights.quaternion.copy(q); scene.add(lights);
+  if (name) {
+    const c = document.createElement('canvas'); c.width = 2048; c.height = 256;
+    const g = c.getContext('2d');
+    g.fillStyle = '#c8102e'; g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = '#fff'; g.font = '900 190px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(name.split('').join(' '), c.width / 2, c.height / 2 + 8);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    const fascia = new THREE.Mesh(new THREE.PlaneGeometry(16, 2), new THREE.MeshBasicMaterial({ map: t }));
+    fascia.position.copy(dir).multiplyScalar(start + depth * 0.62 - depth * 0.38 - 0.05).setY(top + 4.2);
+    fascia.quaternion.copy(q); fascia.rotateY(Math.PI); scene.add(fascia);   // face tournée vers le terrain
+  }
+}
+// La grande tribune populaire derrière l'adversaire (vue principale), et trois tribunes plus basses
+stand({ dir: new THREE.Vector3(0, 0, -1), start: 15, length: 36, rows: 26, name: 'ANFIELD' });
+stand({ dir: new THREE.Vector3(0, 0, 1), start: 15, length: 32, rows: 14 });
+stand({ dir: new THREE.Vector3(-1, 0, 0), start: 10, length: 28, rows: 16 });
+stand({ dir: new THREE.Vector3(1, 0, 0), start: 10, length: 28, rows: 16 });
+
+// Les supporters sautent après chaque point
+const cm = new THREE.Matrix4(), cp = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
+function updateCrowd(dt, time) {
+  if (cheer <= 0) return;
+  cheer -= dt;
+  const k = Math.max(0, cheer);
+  for (const c of crowd) {
+    for (let i = 0; i < c.n; i++) {
+      const j = Math.max(0, Math.sin(time * 14 + i * 1.7)) * 0.25 * Math.min(1, k);
+      cp.fromArray(c.basePos, i * 3); cp.y += j;
+      c.bodies.setMatrixAt(i, cm.compose(cp, c.q, one));
+      c.heads.setMatrixAt(i, cm.makeTranslation(cp.x, cp.y + 0.45, cp.z));
+    }
+    c.bodies.instanceMatrix.needsUpdate = c.heads.instanceMatrix.needsUpdate = true;
+  }
 }
 
 // ---------- Balle ----------
@@ -467,8 +582,8 @@ function startPoint() {
   S.phase = 'serve'; S.lastHitter = null; S.bounces = 0; S.rallyTime = 0;
   Object.assign(ball, { held: true, dead: false, rolling: false }); ball.v.set(0, 0, 0);
   trailPos.length = 0; marker.visible = false;
-  if (S.server === 'A') { ai.serveTimer = 1.3; message('Service de l’ordi', '', 1.2); }
-  else message('À vous de servir', 'Clic gauche ou Espace', 2.5);
+  if (S.server === 'A') { ai.serveTimer = 1.3; message(`Service de ${A_NAME}`, '', 1.2); }
+  else message(`${P_NAME}, à vous de servir`, 'Clic gauche ou Espace', 2.5);
 }
 
 function newGame() {
@@ -481,7 +596,8 @@ function awardPoint(winner, reason) {
   S.phase = 'dead'; marker.visible = false;
   S.score[winner]++; S.played++; updateScore();
   sfx(winner === 'P' ? 'win' : 'lose');
-  message(winner === 'P' ? 'Point pour vous !' : 'Point pour l’ordi', reason, 1.6);
+  message(winner === 'P' ? `Point ${P_NAME} !` : `Point ${A_NAME}`, reason, 1.6);
+  cheer = 1.6;
   S.over = S.score[winner] >= WIN;
   S.nextTimer = S.over ? 1.4 : 1.8;
 }
@@ -517,14 +633,18 @@ function hitBall(who, serve = false) {
     tx = clamp(tx + rand(-0.25, 0.25), -4.2, 4.2);
     target = new THREE.Vector3(tx, R, tz);
     // L'ordi rate plus souvent quand il mène (match plus serré)
-    ai.miss = !serve && Math.random() < clamp(0.13 + 0.04 * (S.score.A - S.score.P), 0.05, 0.35);
+    ai.miss = !serve && Math.random() < clamp(level.miss + level.rubber * (S.score.A - S.score.P), 0.02, 0.4);
     ai.predictT = 0; marker.visible = false;
   } else {
     let tx;
     if (serve) { tx = player.x * 0.8; speed = 9; }
-    else { tx = Math.random() < 0.6 ? (player.x > 0 ? rand(-3.8, -0.8) : rand(0.8, 3.8)) : rand(-3.8, 3.8); speed = rand(9.5, 12.5); }
-    let tz = serve ? 4.8 : rand(4.5, 8);
-    if (!serve && Math.random() < 0.15) { tz = 8.4; speed = 7; }
+    else { const w = level.wideX; tx = Math.random() < 0.6 ? (player.x > 0 ? rand(-w, -0.8) : rand(0.8, w)) : rand(-w, w); speed = rand(...level.speed); }
+    let tz = serve ? 4.8 : rand(...level.depth);
+    if (!serve) {
+      const r = Math.random();
+      if (r < 0.15) { tz = 8.4; speed = 7; }                               // lob
+      else if (r < 0.15 + level.drop) { tz = rand(2.2, 3.2); speed = 8; }  // amortie
+    }
     target = new THREE.Vector3(tx, R, tz);
   }
   ball.v.copy(shotVelocity(ball.p, target, speed));
@@ -540,7 +660,7 @@ function hitBall(who, serve = false) {
 function playerCanHit() {
   if (S.phase !== 'rally' || S.lastHitter !== 'A' || ball.p.z < -0.2) return false;
   const d = Math.hypot(ball.p.x - player.x, ball.p.z - player.z);
-  return d < 2.1 && ball.p.y > 0.05 && ball.p.y < 2.8;
+  return d < level.reach && ball.p.y > 0.05 && ball.p.y < 2.8;
 }
 
 function swingInput() {
@@ -592,6 +712,11 @@ for (const [name, c] of Object.entries(COLORS)) {
   sw.appendChild(b);
 }
 setRacketColor(racketColor);
+$('levels').querySelectorAll('.lv').forEach(b => b.onclick = () => {
+  level = LEVELS[b.dataset.lv];
+  $('levels').querySelectorAll('.lv').forEach(x => x.classList.toggle('sel', x === b));
+  $('target').textContent = `Premier à ${WIN} points · Niveau ${level.label}`;
+});
 
 function show(id) { for (const o of ['menu', 'pause', 'end']) $(o).classList.toggle('show', o === id); }
 function startGame() {
@@ -600,7 +725,7 @@ function startGame() {
 }
 function pause() {
   S.paused = true; pausedAt = performance.now();
-  $('pauseScore').textContent = `Vous ${S.score.P} – ${S.score.A} Ordi`; show('pause');
+  $('pauseScore').textContent = `${P_NAME} ${S.score.P} – ${S.score.A} ${A_NAME} · Niveau ${level.label}`; show('pause');
   if (locked) document.exitPointerLock();
 }
 function resume() { S.paused = false; show(null); requestLock(); }
@@ -611,8 +736,10 @@ function toMenu() {
 function endGame() {
   S.state = 'end';
   const won = S.score.P > S.score.A;
-  $('endTitle').textContent = won ? 'Victoire ! 🏆' : 'Défaite…';
+  $('endTitle').textContent = won ? `Victoire de ${P_NAME} ! 🏆` : `${A_NAME} remporte le match…`;
   $('endScore').textContent = `${S.score.P} – ${S.score.A}`;
+  $('endLevel').textContent = `Niveau ${level.label}`;
+  cheer = 3;
   $('hud').style.display = 'none'; show('end');
   sfx(won ? 'victory' : 'lose');
   if (locked) document.exitPointerLock();
@@ -690,13 +817,13 @@ function update(dt, time) {
       // après le rebond : poursuite directe de la balle (rattrape les balles courtes)
       ai.tx = ball.p.x + ball.v.x * 0.25; ai.tz = Math.min(ball.p.z + ball.v.z * 0.25 - 0.2, -0.8);
       const d = Math.hypot(ball.p.x - ai.x, ball.p.z - ai.z);
-      if (d < 1.3 && ball.p.y < 2.1 && (ball.v.y < 0.6 || ball.p.y < 0.7)) { ai.swing = SWING_TIME; hitBall('A'); }
+      if (d < level.aiReach && ball.p.y < 2.1 && (ball.v.y < 0.6 || ball.p.y < 0.7)) { ai.swing = SWING_TIME; hitBall('A'); }
     }
   } else if (S.phase === 'rally' || S.phase === 'dead') {
     ai.tx = clamp(ball.p.x * 0.5, -2.5, 2.5); ai.tz = -7.6;
   }
   if (S.phase !== 'serve') {
-    const dx = ai.tx - ai.x, dz = ai.tz - ai.z, d = Math.hypot(dx, dz), step = Math.min(d, 4.4 * dt);
+    const dx = ai.tx - ai.x, dz = ai.tz - ai.z, d = Math.hypot(dx, dz), step = Math.min(d, level.aiSpeed * dt);
     if (d > 0.02) { ai.x += dx / d * step; ai.z += dz / d * step; ai.walk += step * 6; }
   }
   ai.x = clamp(ai.x, -HALF_W + 0.35, HALF_W - 0.35); ai.z = clamp(ai.z, -HALF_L + 0.35, -0.6);
@@ -742,6 +869,7 @@ function render(dt, time) {
   aiModel.armPivot.rotation.set(-0.5 - 0.6 * ap, -1.4 * ap, 0.2);
   aiModel.legs[0].rotation.x = Math.sin(ai.walk) * 0.5; aiModel.legs[1].rotation.x = -Math.sin(ai.walk) * 0.5;
 
+  updateCrowd(dt, time);
   renderer.render(scene, camera);
 }
 

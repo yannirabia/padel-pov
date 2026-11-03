@@ -1,7 +1,7 @@
 # Padel POV 🎾
 
 Un jeu de padel en 3D à la première personne, jouable directement dans le navigateur (Three.js).
-Vue « casque VR » sans casque : vous voyez votre raquette devant vous et affrontez un adversaire contrôlé par l'ordinateur. Premier à 7 points.
+Vue « casque VR » sans casque : vous incarnez Federer, raquette en main, face à Nadal (contrôlé par l'ordinateur), dans un stade aux tribunes rouges inspiré d'Anfield. Premier à 7 points.
 
 ## Lancer le jeu
 
@@ -25,6 +25,8 @@ Vue « casque VR » sans casque : vous voyez votre raquette devant vous et affro
 
 ## Fonctionnalités
 
+- 3 niveaux : **Amateur**, **Pro**, **Expert** — Nadal court plus vite, se trompe moins et frappe plus fort et plus près des lignes à chaque niveau
+- Stade avec quatre tribunes pleines de supporters qui sautent à chaque point
 - Terrain bleu, lignes blanches, filet, parois vitrées et grillages
 - 5 couleurs de raquette : rouge, bleu, vert, jaune, violet
 - Assistance légère : portée de frappe généreuse, balle qui passe toujours le filet, anneau indiquant le point de rebond, raquette qui s'illumine quand la balle est à portée
@@ -35,7 +37,7 @@ Vue « casque VR » sans casque : vous voyez votre raquette devant vous et affro
 
 ## Réglages
 
-Dans `index.html` : sensibilité souris (`0.0022`), vitesse du joueur (`5.5`), taux d'erreur de l'ordi (`0.13`), portée de frappe (`2.1`).
+Dans `index.html` : sensibilité souris (`0.0022`), vitesse du joueur (`5.5`), niveaux de difficulté (objet `LEVELS` : vitesse de Nadal, taux d'erreur, puissance, portée de frappe).
 
 ## Licence
 
