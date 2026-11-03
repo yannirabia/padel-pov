@@ -1,7 +1,7 @@
 # Padel POV 🎾
 
 Un jeu de padel en 3D à la première personne, jouable directement dans le navigateur (Three.js).
-Vue « casque VR » sans casque : choisissez votre star (Ronaldo, Messi, Neymar ou Mbappé) et affrontez l'ordinateur en 1 contre 1 ou en 2 contre 2 avec un coéquipier, dans un stade aux tribunes rouges inspiré d'Anfield. Premier à 7 points.
+Vue « casque VR » sans casque : choisissez votre star (Ronaldo, Messi, Neymar ou Mbappé) et affrontez l'ordinateur en 1 contre 1 ou en 2 contre 2 avec un coéquipier — ou un ami **en ligne**, dans un stade aux tribunes rouges inspiré d'Anfield. Premier à 7 points.
 
 ## Lancer le jeu
 
@@ -11,6 +11,15 @@ Vue « casque VR » sans casque : choisissez votre star (Ronaldo, Messi, Neymar 
   ```bash
   python3 -m http.server 8000
   ```
+
+## Jouer en ligne avec un ami (1 contre 1)
+
+1. Choisissez **EN LIGNE** sur l'écran d'accueil, puis votre joueur.
+2. L'un clique sur **Créer une partie** : un code à 4 caractères s'affiche.
+3. Il envoie ce code à son ami, qui choisit **EN LIGNE**, saisit le code et clique sur **Rejoindre**.
+
+Les deux navigateurs se connectent directement (WebRTC via [PeerJS](https://peerjs.com)) : aucun serveur à installer, le jeu reste une simple page web. Le navigateur de celui qui crée la partie calcule la balle et le score.
+Sur certains réseaux très filtrés (Wi‑Fi d'entreprise ou d'école), la connexion directe peut échouer : essayez alors un autre réseau (4G par exemple).
 
 ## Commandes
 
@@ -25,7 +34,7 @@ Vue « casque VR » sans casque : choisissez votre star (Ronaldo, Messi, Neymar 
 
 ## Fonctionnalités
 
-- 2 modes : **1 contre 1** ou **2 contre 2** (votre coéquipier couvre l'autre moitié du terrain)
+- 3 modes : **1 contre 1**, **2 contre 2** (votre coéquipier couvre l'autre moitié du terrain) et **en ligne** contre un ami
 - 4 personnages au choix — Ronaldo, Messi, Neymar, Mbappé — avec maillot, numéro et nom, animés (course, frappe)
 - 3 niveaux : **Amateur**, **Pro**, **Expert** — l'adversaire court plus vite, se trompe moins et frappe plus fort et plus près des lignes à chaque niveau
 - Stade avec quatre tribunes pleines de supporters qui sautent à chaque point

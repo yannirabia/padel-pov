@@ -54,7 +54,7 @@
   .sw:hover { transform: scale(1.08); }
   .sw.sel { box-shadow: 0 0 0 3px #10223f; transform: scale(1.1); }
   .levels { display: inline-flex; background: #eef3fa; border-radius: 14px; padding: 4px; gap: 4px; margin-bottom: 22px; }
-  .lv { font: 800 14px system-ui, sans-serif; letter-spacing: .06em; border: 0; border-radius: 10px; padding: 10px 13px;
+  .lv { font: 800 14px system-ui, sans-serif; letter-spacing: .06em; white-space: nowrap; border: 0; border-radius: 10px; padding: 10px 13px;
     background: none; color: #4b5d7a; cursor: pointer; }
   .lv:hover { color: #10223f; }
   .lv.sel { background: #fff; color: #10223f; box-shadow: 0 2px 8px rgba(16,34,63,.15); }
@@ -72,6 +72,14 @@
   .vs { margin: -6px 0 14px; color: #4b5d7a; font-size: 14px; min-height: 0; }
   .vs:empty { display: none; }
   .panel { max-height: calc(100vh - 32px); overflow-y: auto; }
+  .online { background: #eef3fa; border-radius: 14px; padding: 14px; margin-bottom: 16px; }
+  .online .or { margin: 8px 0; color: #6a7a94; font-size: 13px; }
+  .joinrow { display: flex; gap: 8px; justify-content: center; }
+  #code { width: 110px; font: 800 20px system-ui, sans-serif; letter-spacing: .2em; text-align: center; text-transform: uppercase;
+    border: 2px solid #c9d4e4; border-radius: 12px; padding: 6px; color: #10223f; }
+  button.big.small { font-size: 15px; padding: 10px 20px; box-shadow: 0 4px 0 #1452a6; }
+  .status { margin: 10px 0 0; font-size: 14px; color: #10223f; min-height: 1em; }
+  .status b { font-size: 22px; letter-spacing: .15em; color: #1e6fd9; }
   .controls { text-align: left; background: #eef3fa; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; font-size: 14px; line-height: 1.75; }
   kbd { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: 6px; background: #fff; border: 1px solid #c9d4e4;
     border-bottom-width: 3px; font: 600 12px/20px system-ui, sans-serif; text-align: center; color: #10223f; }
@@ -109,8 +117,9 @@
         <div class="levels" id="modes">
           <button class="lv sel" data-mode="1">1 CONTRE 1</button>
           <button class="lv" data-mode="2">2 CONTRE 2</button>
+          <button class="lv" data-mode="online">EN LIGNE</button>
         </div></div>
-      <div><div class="label">Niveau</div>
+      <div id="levelBox"><div class="label">Niveau</div>
     <div class="levels" id="levels">
       <button class="lv" data-lv="amateur">AMATEUR</button>
       <button class="lv sel" data-lv="pro">PRO</button>
@@ -119,9 +128,18 @@
     </div>
     <div class="label">Votre joueur</div>
     <div class="chars" id="mine"></div>
-    <div class="label" id="otherLabel">Adversaire</div>
-    <div class="chars" id="other"></div>
-    <p class="vs" id="vsLine"></p>
+    <div id="otherBox">
+      <div class="label" id="otherLabel">Adversaire</div>
+      <div class="chars" id="other"></div>
+      <p class="vs" id="vsLine"></p>
+    </div>
+    <div id="onlineBox" class="online" hidden>
+      <div class="label">Partie en ligne · 1 contre 1</div>
+      <button class="big small" id="hostBtn">Créer une partie</button>
+      <div class="or">ou</div>
+      <div class="joinrow"><input id="code" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false"><button class="big small" id="joinBtn">Rejoindre</button></div>
+      <p class="status" id="netStatus"></p>
+    </div>
     <div class="label">Couleur de la raquette</div>
     <div class="colors" id="colors"></div>
     <div class="controls">
@@ -154,6 +172,7 @@
   </div>
 </div>
 
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script type="importmap">
 { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
 </script>
@@ -670,7 +689,7 @@ function sfx(type, k = 1) {
     case 'victory': [523, 659, 784, 1047].forEach((f, i) => tone(f, f, 0.25, 'triangle', 0.3, i * 0.12)); break;
   }
 }
-const atPlayer = k => k / (1 + 0.12 * Math.hypot(ball.p.x - player.x, ball.p.z - player.z));
+const atPlayer = k => k / (1 + 0.12 * Math.hypot(ball.p.x - meX(), ball.p.z - meZ()));
 
 // ---------- État du jeu ----------
 // Équipe 'P' (vous, côté z > 0) contre équipe 'A' (côté z < 0). Les autres joueurs sont des "bots".
@@ -679,17 +698,17 @@ const S = { state: 'menu', paused: false, score: { P: 0, A: 0 }, phase: 'serve',
   bounces: 0, rallyTime: 0, played: 0, nextTimer: 0, over: false, assigned: null, target: null, predT: 0, missRoll: 1 };
 const player = { x: 2, z: 8.6, yaw: 0.12, pitch: -0.1, swing: 0, swingUsed: false, bob: 0 };
 const ball = { p: new THREE.Vector3(), v: new THREE.Vector3(), held: true, dead: false, rolling: false };
-let mode = 1, myChar = 'messi', otherChar = 'ronaldo';
+let mode = 1, online = false, myChar = 'messi', otherChar = 'ronaldo';
 let bots = [];
 const label = { P: '', A: '' };
 const mate = () => bots.find(b => b.team === 'P');
 const nameOf = who => who === HUMAN ? CHARS[myChar].name : CHARS[who.key].name;
 
+const make = (key, team, lane) => ({ key, team, lane, model: makePlayer(key), x: 0, z: 0, tx: 0, tz: 0,
+  swing: 0, miss: false, walk: 0, run: 0, face: team === 'P' ? Math.PI : 0, serveTimer: 0, yaw: 0, pitch: 0, remote: false });
 function setupTeams() {
   for (const b of bots) scene.remove(b.model.group);
   const rest = Object.keys(CHARS).filter(k => k !== myChar && k !== otherChar);
-  const make = (key, team, lane) => ({ key, team, lane, model: makePlayer(key), x: 0, z: 0, tx: 0, tz: 0,
-    swing: 0, miss: false, walk: 0, run: 0, face: team === 'P' ? Math.PI : 0, serveTimer: 0 });
   // lane : -1 = côté x < 0, +1 = côté x > 0 (en 2 contre 2 chacun couvre sa moitié)
   bots = mode === 1 ? [make(otherChar, 'A', 0)] : [make(otherChar, 'P', -1), make(rest[0], 'A', -1), make(rest[1], 'A', 1)];
   const names = t => (t === 'P' ? [myChar] : []).concat(bots.filter(b => b.team === t).map(b => b.key)).map(k => CHARS[k].name);
@@ -717,7 +736,10 @@ function message(text, sub = '', time = 1.6) {
   $('msg').innerHTML = text + (sub ? `<small>${sub}</small>` : '');
   $('msg').style.opacity = 1; msgTimer = time;
 }
-function updateScore() { $('sP').textContent = S.score.P; $('sA').textContent = S.score.A; }
+// L'invité voit son équipe ('A') à gauche du tableau d'affichage
+const myTeam = () => NET.role === 'guest' ? 'A' : 'P';
+const oppTeam = () => NET.role === 'guest' ? 'P' : 'A';
+function updateScore() { $('sP').textContent = S.score[myTeam()]; $('sA').textContent = S.score[oppTeam()]; }
 
 function startPoint() {
   const side = S.played % 2 === 0 ? 1 : -1;
@@ -729,6 +751,7 @@ function startPoint() {
   trailPos.length = 0; marker.visible = false;
   if (S.server === HUMAN) message('À vous de servir', 'Clic gauche ou Espace', 2.5);
   else { S.server.serveTimer = 1.3; message(`Service de ${nameOf(S.server)}`, '', 1.2); }
+  if (NET.role === 'host') send({ t: 'serve', who: S.server === HUMAN ? 'host' : 'guest', gx: bots[0].x, gz: bots[0].z, side });
 }
 
 function newGame() {
@@ -743,11 +766,13 @@ function awardPoint(winner, reason) {
   sfx(winner === 'P' ? 'win' : 'lose');
   message(`Point ${label[winner]}${winner === 'P' ? ' !' : ''}`, reason, 1.6);
   cheer = 1.6;
+  if (NET.role === 'host') send({ t: 'pt', w: winner, reason });
   S.over = S.score[winner] >= WIN;
   S.nextTimer = S.over ? 1.4 : 1.8;
 }
 
 function onBallEvent(e, k = 3) {
+  if (NET.role === 'host') send({ t: 'ev', e, k, z: ball.p.z });
   if (e === 'floor') sfx('bounce', atPlayer(k / 8));
   else if (e === 'wall') sfx('wall', atPlayer(k / 8));
   else if (e === 'net') sfx('net');
@@ -766,18 +791,21 @@ function onBallEvent(e, k = 3) {
 function hitBall(hitter, serve = false) {
   const team = hitter === HUMAN ? 'P' : hitter.team;
   let target, speed;
-  if (hitter === HUMAN) {
-    const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+  if (hitter === HUMAN || hitter.remote) {
+    // visée d'un joueur humain : dans son propre repère (l'invité joue côté z < 0, repère inversé)
+    const m = hitter === HUMAN ? 1 : -1, yaw = hitter === HUMAN ? player.yaw : hitter.yaw, pitch = hitter === HUMAN ? player.pitch : hitter.pitch;
+    const bx = ball.p.x * m, bz = ball.p.z * m;
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     let tz;
     if (serve) { tz = -4.8; speed = 9.5; }
-    else if (player.pitch > 0.28) { tz = -8.4; speed = 7; }       // lob
-    else if (player.pitch < -0.38) { tz = -3.0; speed = 10; }     // balle courte
+    else if (pitch > 0.28) { tz = -8.4; speed = 7; }       // lob
+    else if (pitch < -0.38) { tz = -3.0; speed = 10; }     // balle courte
     else { tz = -6.8; speed = 13; }
     let tx;
-    if (fz < -0.15) tx = ball.p.x + fx * (tz - ball.p.z) / fz;
-    else tx = -ball.p.x * 0.5;
+    if (fz < -0.15) tx = bx + fx * (tz - bz) / fz;
+    else tx = -bx * 0.5;
     tx = clamp(tx + rand(-0.25, 0.25), -4.2, 4.2);
-    target = new THREE.Vector3(tx, R, tz);
+    target = new THREE.Vector3(tx * m, R, tz * m);
   } else {
     const dirZ = team === 'P' ? -1 : 1;     // vers le camp d'en face
     let tx, tz;
@@ -802,6 +830,7 @@ function hitBall(hitter, serve = false) {
   S.missRoll = serve ? 1 : Math.random(); S.predT = 0; S.assigned = null;
   sfx('hit', hitter === HUMAN ? 1 : atPlayer(1.4));
   marker.visible = false;
+  if (NET.role === 'host') send({ t: 'hit', who: hitter === HUMAN ? 'host' : 'guest', b: [...ball.p.toArray(), ...ball.v.toArray()] });
   if (team === 'A') {
     const pr = predict(1);
     if (pr.first) { marker.position.set(pr.first.x, 0.014, pr.first.z); marker.visible = true; }
@@ -825,14 +854,22 @@ function assign() {
   }
 }
 
+// Position du joueur local dans le monde (l'invité joue en repère inversé)
+const meX = () => NET.role === 'guest' ? -player.x : player.x;
+const meZ = () => NET.role === 'guest' ? -player.z : player.z;
 function playerCanHit() {
-  if (S.phase !== 'rally' || S.lastHitter !== 'A' || ball.p.z < -0.2) return false;
-  const d = Math.hypot(ball.p.x - player.x, ball.p.z - player.z);
+  const sg = NET.role === 'guest' ? -1 : 1;
+  if (S.phase !== 'rally' || S.lastHitter !== oppTeam() || ball.p.z * sg < -0.2) return false;
+  const d = Math.hypot(ball.p.x - meX(), ball.p.z - meZ());
   return d < level.reach && ball.p.y > 0.05 && ball.p.y < 2.8;
 }
 
 function swingInput() {
   if (S.state !== 'playing' || S.paused) return;
+  if (NET.role === 'guest') {          // l'hôte décide si la frappe touche la balle
+    if (player.swing <= 0) { player.swing = SWING_TIME; if (!(S.phase === 'serve' && S.server === HUMAN)) sfx('whoosh'); }
+    send({ t: 'swing' }); return;
+  }
   if (S.phase === 'serve' && S.server === HUMAN) { player.swing = SWING_TIME; player.swingUsed = true; hitBall(HUMAN, true); return; }
   if (player.swing > 0) return;
   player.swing = SWING_TIME; player.swingUsed = false; sfx('whoosh');
@@ -852,7 +889,8 @@ addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 canvas.addEventListener('mousedown', e => {
   if (e.button !== 0 || S.state !== 'playing' || S.paused) return;
-  if (!locked && !lockFailed) requestLock();
+  if (!locked) requestLock();
+  if (actx) actx.resume();
   swingInput();
 });
 addEventListener('mousemove', e => {
@@ -887,7 +925,12 @@ function segmented(id, onPick) {
   });
 }
 segmented('levels', d => { level = LEVELS[d.lv]; $('target').textContent = `Premier à ${WIN} points · Niveau ${level.label}`; });
-segmented('modes', d => { mode = +d.mode; renderPickers(); });
+segmented('modes', d => {
+  online = d.mode === 'online'; mode = online ? 1 : +d.mode;
+  $('levelBox').hidden = $('otherBox').hidden = $('play').hidden = online; $('onlineBox').hidden = !online;
+  if (!online) netReset();
+  renderPickers();
+});
 
 function charCard(key, selected, onPick) {
   const c = CHARS[key], b = document.createElement('button');
@@ -907,33 +950,43 @@ function renderPickers() {
 
 function show(id) { for (const o of ['menu', 'pause', 'end']) $(o).classList.toggle('show', o === id); }
 function startGame() {
+  NET.lastRecv = performance.now();
   initAudio(); show(null); $('hud').style.display = 'block';
+  $('target').textContent = `Premier à ${WIN} points · ${NET.role ? 'En ligne' : 'Niveau ' + level.label}`;
   S.state = 'playing'; S.paused = false; newGame(); requestLock();
 }
 function pause() {
   S.paused = true; pausedAt = performance.now();
-  $('pauseScore').textContent = `${label.P} ${S.score.P} – ${S.score.A} ${label.A} · Niveau ${level.label}`; show('pause');
+  $('pauseScore').textContent = `${label[myTeam()]} ${S.score[myTeam()]} – ${S.score[oppTeam()]} ${label[oppTeam()]}` +
+    (NET.role ? ' · En ligne (le match continue)' : ` · Niveau ${level.label}`);
+  show('pause');
   if (locked) document.exitPointerLock();
 }
 function resume() { S.paused = false; show(null); requestLock(); }
 function toMenu() {
+  netReset();
   S.state = 'menu'; S.paused = false; $('hud').style.display = 'none'; show('menu');
-  placePlayers(1); ball.p.set(1.6, 1.0, 7.6);
+  renderPickers(); ball.p.set(1.6, 1.0, 7.6); Object.assign(ball, { held: true }); marker.visible = false;
   if (locked) document.exitPointerLock();
 }
 function endGame() {
   S.state = 'end';
-  const won = S.score.P > S.score.A;
-  $('endTitle').textContent = won ? `Victoire de ${label.P} ! 🏆` : `${label.A} remporte${mode === 2 ? 'nt' : ''} le match…`;
-  $('endScore').textContent = `${S.score.P} – ${S.score.A}`;
-  $('endLevel').textContent = `${mode === 1 ? '1 contre 1' : '2 contre 2'} · Niveau ${level.label}`;
+  const me = myTeam(), op = oppTeam(), won = S.score[me] > S.score[op];
+  if (NET.role === 'host') send({ t: 'end' });
+  $('endTitle').textContent = won ? `Victoire de ${label[me]} ! 🏆` : `${label[op]} remporte${mode === 2 ? 'nt' : ''} le match…`;
+  $('endScore').textContent = `${S.score[me]} – ${S.score[op]}`;
+  $('endLevel').textContent = NET.role ? 'Partie en ligne' : `${mode === 1 ? '1 contre 1' : '2 contre 2'} · Niveau ${level.label}`;
   cheer = 3;
   $('hud').style.display = 'none'; show('end');
   sfx(won ? 'victory' : 'lose');
   if (locked) document.exitPointerLock();
 }
 $('play').onclick = startGame;
-$('replay').onclick = startGame;
+$('replay').onclick = () => {
+  if (NET.role === 'host') hostStart();
+  else if (NET.role === 'guest') { send({ t: 'again' }); $('endLevel').textContent = 'Revanche demandée… en attente de l’adversaire'; }
+  else startGame();
+};
 $('resume').onclick = resume;
 $('quit').onclick = toMenu;
 $('toMenu').onclick = toMenu;
@@ -943,9 +996,183 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
+// ---------- En ligne (1 contre 1, pair-à-pair avec PeerJS) ----------
+// L'hôte (côté z > 0) simule tout : balle, règles, score. L'invité (côté z < 0) envoie ses déplacements
+// et ses coups de raquette, et affiche l'état reçu ; il joue dans un repère inversé (x, z -> -x, -z).
+const NET = { role: null, peer: null, conn: null, sendT: 0, closing: false, lastRecv: 0 };
+const PEER_PREFIX = 'padelpov-v1-';
+function send(d) { if (NET.conn && NET.conn.open) NET.conn.send(d); }
+function netStatus(html) { $('netStatus').innerHTML = html; }
+function netReset() {
+  NET.closing = true;
+  try { NET.conn && NET.conn.close(); } catch (_) {}
+  try { NET.peer && NET.peer.destroy(); } catch (_) {}
+  Object.assign(NET, { role: null, peer: null, conn: null, closing: false });
+  for (const b of bots) b.remote = false;
+}
+function netLost() {
+  if (NET.closing || !NET.role) return;
+  const wasPlaying = S.state !== 'menu';
+  netReset();
+  if (wasPlaying) { toMenu(); }
+  netStatus('L’adversaire s’est déconnecté. Créez ou rejoignez une nouvelle partie.');
+}
+function listen(conn) {
+  conn.on('data', onNet);
+  conn.on('close', netLost);
+  conn.on('error', netLost);
+}
+function genCode() {
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 4 }, () => A[(Math.random() * A.length) | 0]).join('');
+}
+$('hostBtn').onclick = () => {
+  if (!window.Peer) return netStatus('Impossible de charger le module réseau (vérifiez votre connexion).');
+  initAudio(); netReset(); NET.role = 'host';
+  const code = genCode(), peer = new Peer(PEER_PREFIX + code); NET.peer = peer;
+  netStatus('Création de la partie…');
+  peer.on('open', () => netStatus(`Code de la partie : <b>${code}</b><br>Envoyez-le à votre adversaire. En attente…`));
+  peer.on('connection', conn => {
+    if (NET.conn) { conn.on('open', () => conn.close()); return; }
+    NET.conn = conn; listen(conn);
+  });
+  peer.on('error', e => netStatus(e.type === 'unavailable-id' ? 'Code déjà utilisé, réessayez.' : `Erreur réseau (${e.type}).`));
+};
+$('joinBtn').onclick = () => {
+  const code = $('code').value.trim().toUpperCase();
+  if (code.length !== 4) return netStatus('Entrez le code à 4 caractères reçu de l’hôte.');
+  if (!window.Peer) return netStatus('Impossible de charger le module réseau (vérifiez votre connexion).');
+  initAudio(); netReset(); NET.role = 'guest';
+  const peer = new Peer(); NET.peer = peer;
+  netStatus('Connexion…');
+  peer.on('open', () => {
+    const conn = peer.connect(PEER_PREFIX + code, { reliable: true }); NET.conn = conn; listen(conn);
+    conn.on('open', () => { send({ t: 'hello', char: myChar }); netStatus('Connecté ! Lancement du match…'); });
+  });
+  peer.on('error', e => { netStatus(e.type === 'peer-unavailable' ? 'Partie introuvable : vérifiez le code.' : `Erreur réseau (${e.type}).`); NET.role = null; });
+};
+$('code').addEventListener('keydown', e => { if (e.key === 'Enter') $('joinBtn').click(); e.stopPropagation(); });
+
+// Si l'adversaire ne donne plus signe de vie (onglet fermé, réseau coupé), on revient à l'accueil
+setInterval(() => {
+  if (NET.role && S.state === 'playing' && performance.now() - NET.lastRecv > 15000) netLost();
+}, 1000);
+function hostStart() {
+  level = LEVELS.pro;
+  send({ t: 'start', host: myChar, guest: otherChar });
+  startGame();
+}
+function remoteCanHit(b) {
+  if (S.phase !== 'rally' || S.lastHitter !== 'P' || ball.p.z > 0.2) return false;
+  // portée un peu plus grande pour compenser le délai réseau
+  return Math.hypot(ball.p.x - b.x, ball.p.z - b.z) < LEVELS.pro.reach + 0.5 && ball.p.y > 0.05 && ball.p.y < 2.8;
+}
+// Invité : l'adversaire (l'hôte) est un joueur distant de l'équipe 'P'
+function setupGuest(hostChar) {
+  for (const b of bots) scene.remove(b.model.group);
+  const h = make(hostChar, 'P', 0); h.remote = true; bots = [h];
+  label.P = CHARS[hostChar].name; label.A = CHARS[myChar].name;
+  $('nP').textContent = label.A.toUpperCase(); $('nA').textContent = label.P.toUpperCase();
+  $('pdot').style.background = hex(CHARS[myChar].shirt); $('adot').style.background = hex(CHARS[hostChar].shirt);
+  setArmColors(CHARS[myChar]);
+}
+
+function onNet(d) {
+  NET.lastRecv = performance.now();
+  if (NET.role === 'host') {
+    const b = bots[0];
+    if (d.t === 'hello') {
+      otherChar = d.char; setupTeams(); bots[0].remote = true;
+      hostStart();
+    } else if (d.t === 'in' && b && b.remote) {
+      b.tx = d.x; b.tz = d.z; b.yaw = d.yaw; b.pitch = d.pitch;
+    } else if (d.t === 'swing' && b && b.remote && S.state === 'playing') {
+      if (S.phase === 'serve' && S.server === b) { b.swing = SWING_TIME; b.swingUsed = true; hitBall(b, true); }
+      else if (b.swing <= 0) { b.swing = SWING_TIME; b.swingUsed = false; }
+    } else if (d.t === 'again' && S.state === 'end') hostStart();
+    return;
+  }
+  // --- invité ---
+  switch (d.t) {
+    case 'start':
+      setupGuest(d.host); level = LEVELS.pro; NET.lastRecv = performance.now();
+      S.score.P = S.score.A = 0; S.over = false; updateScore();
+      show(null); $('hud').style.display = 'block';
+      $('target').textContent = `Premier à ${WIN} points · En ligne`;
+      S.state = 'playing'; S.paused = false; requestLock();
+      break;
+    case 'serve':
+      player.x = -d.gx; player.z = -d.gz; player.yaw = 0.14 * d.side; player.pitch = -0.1;
+      S.phase = 'serve'; S.server = d.who === 'guest' ? HUMAN : bots[0];
+      Object.assign(ball, { held: true, dead: false, rolling: false });
+      trailPos.length = 0; marker.visible = false;
+      if (d.who === 'guest') message('À vous de servir', 'Clic gauche ou Espace', 2.5);
+      else message(`Service de ${label.P}`, '', 1.2);
+      break;
+    case 'st': {
+      const holding = d.ph === 'serve' && d.sv === 'guest';
+      if (!holding) { ball.p.fromArray(d.b, 0); ball.v.fromArray(d.b, 3); }
+      Object.assign(ball, { held: d.h, dead: false, rolling: false });
+      S.phase = d.ph; S.server = d.sv === 'guest' ? HUMAN : bots[0];
+      S.lastHitter = d.lh; S.bounces = d.bo; S.score.P = d.sc[0]; S.score.A = d.sc[1]; updateScore();
+      if (bots[0]) { bots[0].tx = d.hp[0]; bots[0].tz = d.hp[1]; }
+      break;
+    }
+    case 'hit':
+      ball.p.fromArray(d.b, 0); ball.v.fromArray(d.b, 3); ball.held = false; trailPos.length = 0;
+      S.phase = 'rally'; S.lastHitter = d.who === 'host' ? 'P' : 'A'; S.bounces = 0;
+      sfx('hit', d.who === 'guest' ? 1 : atPlayer(1.4));
+      marker.visible = false;
+      if (d.who === 'host') {
+        bots[0].swing = SWING_TIME;
+        const pr = predict(-1);
+        if (pr.first) { marker.position.set(pr.first.x, 0.014, pr.first.z); marker.visible = true; }
+      }
+      break;
+    case 'ev':
+      if (d.e === 'floor') { sfx('bounce', atPlayer(d.k / 8)); if (d.z < 0) marker.visible = false; }
+      else if (d.e === 'wall') sfx('wall', atPlayer(d.k / 8));
+      else if (d.e === 'net') sfx('net');
+      break;
+    case 'pt':
+      S.phase = 'dead'; marker.visible = false;
+      sfx(d.w === 'A' ? 'win' : 'lose');
+      message(`Point ${label[d.w]}${d.w === 'A' ? ' !' : ''}`, d.reason, 1.6);
+      cheer = 1.6;
+      break;
+    case 'end':
+      endGame();
+      break;
+  }
+}
+
+function guestUpdate(dt, time) {
+  movePlayer(dt);
+  if (player.swing > 0) player.swing -= dt;
+  if (S.phase === 'serve' && S.server === HUMAN) {
+    tmp.set(0.22, -0.3, -0.85).applyQuaternion(camera.quaternion).add(camera.position);
+    ball.p.copy(tmp); ball.p.y = 1.0 + Math.sin(time * 4) * 0.04; ball.p.z = Math.min(ball.p.z, -0.5);
+  } else if (!ball.held) {
+    // entre deux messages de l'hôte, on prolonge la trajectoire localement
+    const n = Math.ceil(dt / (1 / 240)), h = dt / n;
+    for (let i = 0; i < n; i++) stepBall(ball, h, () => {});
+  }
+  NET.sendT -= dt;
+  if (NET.sendT <= 0) { NET.sendT = 1 / 30; send({ t: 'in', x: -player.x, z: -player.z, yaw: player.yaw, pitch: player.pitch }); }
+  for (const b of bots) updateBot(b, dt);
+  if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0) $('msg').style.opacity = 0; }
+}
+
 // ---------- Bots (adversaires et coéquipier) ----------
 const sideZ = (z, sgn) => sgn > 0 ? clamp(z, 0.8, HALF_L - 0.35) : clamp(z, -HALF_L + 0.35, -0.8);
 function updateBot(b, dt) {
+  if (b.remote) {   // joueur humain distant : on suit sa position reçue par le réseau
+    b.tx = clamp(b.tx, -HALF_W + 0.35, HALF_W - 0.35); b.tz = sideZ(b.tz, b.team === 'P' ? 1 : -1);
+    const k = Math.min(1, dt * 15), dx = (b.tx - b.x) * k, dz = (b.tz - b.z) * k, mv = Math.hypot(dx, dz);
+    b.x += dx; b.z += dz; b.walk += mv * 5; b.run = Math.min(1, mv / dt / 5);
+    if (NET.role === 'host' && b.swing > 0 && !b.swingUsed && remoteCanHit(b)) { b.swingUsed = true; hitBall(b); }
+    return;
+  }
   const sgn = b.team === 'P' ? 1 : -1;
   const speed = b.team === 'A' ? level.aiSpeed : 4.6, reach = b.team === 'A' ? level.aiReach : 1.35;
   if (S.phase === 'rally' && S.lastHitter !== b.team && S.assigned === b) {
@@ -991,8 +1218,7 @@ function animateBot(b, dt) {
 
 // ---------- Boucle ----------
 const tmp = new THREE.Vector3();
-function update(dt, time) {
-  // Joueur
+function movePlayer(dt) {
   let mx = 0, mz = 0;
   if (keys.KeyW || keys.ArrowUp) mz += 1;
   if (keys.KeyS || keys.ArrowDown) mz -= 1;
@@ -1007,6 +1233,9 @@ function update(dt, time) {
   }
   player.x = clamp(player.x, -HALF_W + 0.35, HALF_W - 0.35);
   player.z = clamp(player.z, 0.6, HALF_L - 0.35);
+}
+function update(dt, time) {
+  movePlayer(dt);
   const m = mate(); if (m) m.lane = player.x >= 0 ? -1 : 1;   // le coéquipier couvre l'autre moitié
 
   // Frappe pendant la fenêtre du swing (assistance : fenêtre large et portée généreuse)
@@ -1020,6 +1249,10 @@ function update(dt, time) {
     if (S.server === HUMAN) {
       tmp.set(0.22, -0.3, -0.85).applyQuaternion(camera.quaternion).add(camera.position);
       ball.p.copy(tmp); ball.p.y = 1.0 + Math.sin(time * 4) * 0.04; ball.p.z = Math.max(ball.p.z, 0.5);
+    } else if (S.server.remote) {
+      // l'invité tient la balle devant lui (vers le filet), en attendant son clic
+      const b = S.server, wx = 0.85 * Math.sin(b.yaw) - 0.22 * Math.cos(b.yaw), wz = 0.85 * Math.cos(b.yaw) + 0.22 * Math.sin(b.yaw);
+      ball.p.set(b.x + wx, 1.0 + Math.sin(time * 4) * 0.04, Math.min(b.z + wz, -0.5));
     } else {
       const b = S.server, sgn = b.team === 'P' ? 1 : -1;
       ball.p.set(b.x + 0.35 * sgn, 1.0 + Math.sin(time * 4) * 0.04, b.z - 0.5 * sgn);
@@ -1041,6 +1274,14 @@ function update(dt, time) {
   }
   if (S.phase === 'rally') { S.predT -= dt; if (S.predT <= 0) { assign(); S.predT = 0.15; } }
   for (const b of bots) updateBot(b, dt);
+  if (NET.role === 'host') {
+    NET.sendT -= dt;
+    if (NET.sendT <= 0) {
+      NET.sendT = 1 / 30;
+      send({ t: 'st', b: [...ball.p.toArray(), ...ball.v.toArray()], h: ball.held, hp: [player.x, player.z], ph: S.phase,
+        sv: S.server === HUMAN ? 'host' : 'guest', lh: S.lastHitter, bo: S.bounces, sc: [S.score.P, S.score.A] });
+    }
+  }
 
   // Fin de point
   if (S.phase === 'dead') {
@@ -1053,9 +1294,10 @@ function update(dt, time) {
 function render(dt, time) {
   // Caméra à hauteur des yeux
   const bob = Math.sin(player.bob) * 0.025;
-  camera.position.set(player.x, 1.65 + bob, player.z);
+  camera.position.set(meX(), 1.65 + bob, meZ());
+  const yawOff = NET.role === 'guest' ? Math.PI : 0;
   if (S.state === 'menu') { camera.rotation.set(-0.1 + Math.sin(time * 0.4) * 0.02, player.yaw + Math.sin(time * 0.25) * 0.08, 0); }
-  else camera.rotation.set(player.pitch, player.yaw, 0);
+  else camera.rotation.set(player.pitch, player.yaw + yawOff, 0);
 
   // Raquette : position de repos + animation de frappe
   const p = player.swing > 0 ? 1 - player.swing / SWING_TIME : 0, s = Math.sin(p * Math.PI);
@@ -1084,13 +1326,14 @@ const clock = new THREE.Clock();
 function loop() {
   requestAnimationFrame(loop);
   const dt = Math.min(clock.getDelta(), 0.05), time = clock.elapsedTime;
-  if (S.state === 'playing' && !S.paused) update(dt, time);
-  render(S.paused ? 0 : dt, time);
+  // en ligne, la pause n'arrête pas le match (l'adversaire continue de jouer)
+  if (S.state === 'playing' && (!S.paused || NET.role)) (NET.role === 'guest' ? guestUpdate : update)(dt, time);
+  render(S.paused && !NET.role ? 0 : dt, time);
 }
 // Décor de l'accueil : balle posée devant le joueur
 renderPickers();
 ball.p.set(1.6, 1.0, 7.6);
-window.padel = { S, ball, player, get bots() { return bots; }, swingInput, playerCanHit }; // accès console pour le débogage
+window.padel = { S, ball, player, get bots() { return bots; }, swingInput, playerCanHit, onNet, NET }; // accès console pour le débogage
 loop();
 </script>
 </body>
